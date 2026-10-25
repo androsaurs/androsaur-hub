@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>Items</h1>
+<p class="hint">
+  Это демонстрационная сущность шаблона. Замените её на свою предметную область
+  (роутер → сервис → репозиторий → таблица) и удалите этот пример.
+</p>
+
+<form class="add-form" method="post" action="/items">
+  <input type="text" name="title" placeholder="Новый элемент…" required maxlength="200">
+  <button type="submit">Добавить</button>
+</form>
+
+{% if items %}
+<ul class="items">
+  {% for item in items %}
+  <li>
+    <span class="item-title">{{ item.title }}</span>
+    <time class="item-date">{{ item.created_at | datetimeformat }}</time>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="empty">Пока ничего нет. Добавьте первый элемент.</p>
+{% endif %}
+{% endblock %}
