@@ -33,9 +33,9 @@
 
 ```bash
 uv run uvicorn app.main:app --host 0.0.0.0 --port 8770
-# телефону один раз передать адрес хаба в Wi‑Fi (здесь — компьютер 192.168.1.87):
-adb shell am start -n dev.hram.androsaur/.MainActivity --es hub http://192.168.1.87:8770
-# админка: http://192.168.1.87:8770
+# телефону один раз передать адрес хаба в домашнем Wi‑Fi (адрес компьютера с хабом):
+adb shell am start -n dev.hram.androsaur/.MainActivity --es hub http://<адрес хаба>:8770
+# админка: http://<адрес хаба>:8770
 ```
 
 Адрес хаба телефон запоминает; пустое значение (`--es hub ""`) отключает хаб.
