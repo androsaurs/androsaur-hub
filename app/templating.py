@@ -20,5 +20,12 @@ def _ago(seconds: int) -> str:
     return f"{seconds // 86400} дн назад"
 
 
+def _temp(value: float) -> str:
+    """Jinja-фильтр: температура со знаком («+11°», «−3°», «0°»)."""
+    t = int(value + 0.5) if value >= 0 else -int(-value + 0.5)
+    return "0°" if t == 0 else (f"+{t}°" if t > 0 else f"−{-t}°")
+
+
 templates.env.filters["ago"] = _ago
+templates.env.filters["temp"] = _temp
 templates.env.globals["app_name"] = get_settings().app_name

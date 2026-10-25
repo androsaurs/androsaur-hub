@@ -7,6 +7,7 @@ from app.repositories.people import PeopleRepository
 from app.repositories.settings import SettingsRepository
 from app.schemas import DeviceConfig, DeviceRegistration, DeviceSync, DeviceView
 from app.services.people import PeopleService
+from app.services.weather import WeatherService
 
 
 class UnknownDevice(Exception):
@@ -24,11 +25,13 @@ class DeviceService:
         settings: SettingsRepository | None = None,
         people: PeopleRepository | None = None,
         clock: Callable[[], float] = time.time,
+        weather: WeatherService | None = None,
     ) -> None:
         self._devices = devices or DeviceRepository()
         self._settings = settings or SettingsRepository()
         self._people = people or PeopleRepository()
         self._house = PeopleService(self._people, self._devices, clock)
+        self._weather = weather or WeatherService(clock=clock)
         self._clock = clock
 
     def register(self, reg: DeviceRegistration) -> DeviceConfig:
@@ -67,6 +70,7 @@ class DeviceService:
         return views
 
     def _config(self, device_id: str, upload: list[str] | None = None) -> DeviceConfig:
+        place, reading = self._weather.current()
         values: dict[str, dict[str, int]] = {}
         for (module, key), value in self._settings.values().items():
             values.setdefault(module, {})[key] = value
@@ -76,4 +80,6 @@ class DeviceService:
             commands=self._people.pending(device_id),
             people_rev=self._house.revision(),
             upload=upload or [],
+            weather_place=place,
+            weather=reading,
         )

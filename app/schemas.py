@@ -150,6 +150,28 @@ class Command(BaseModel):
     into: str | None = None
 
 
+class WeatherPlace(BaseModel):
+    """Место, для которого показывается погода."""
+
+    name: str
+    latitude: float
+    longitude: float
+
+
+class WeatherReading(BaseModel):
+    """Погода сейчас и на ближайшие 12 часов. ``symbol`` — код MET Norway (``cloudy``,
+    ``lightrain_day``…), описание словами телефон делает сам. Время — миллисекунды Unix."""
+
+    place: str
+    temperature: float
+    symbol: str
+    wind: float | None = None
+    min: float | None = None
+    max: float | None = None
+    time_ms: int = Field(serialization_alias="timeMs")
+    fetched_at_ms: int = Field(serialization_alias="fetchedAtMs")
+
+
 class DeviceConfig(BaseModel):
     """Настройки, которые хаб задаёт устройству, и команды, которые оно ещё не выполнило.
 
@@ -161,6 +183,9 @@ class DeviceConfig(BaseModel):
     people_rev: int = Field(default=0, serialization_alias="peopleRev")
     # ID людей, наборы которых хаб просит прислать (новые или изменившиеся на телефоне).
     upload: list[str] = Field(default_factory=list)
+    # Место погоды, заданное в доме (null — не задано: телефон берёт своё), и погода для него.
+    weather_place: WeatherPlace | None = Field(default=None, serialization_alias="weatherPlace")
+    weather: WeatherReading | None = None
 
 
 class PersonView(BaseModel):

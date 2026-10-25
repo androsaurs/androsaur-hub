@@ -95,6 +95,18 @@ CREATE TABLE IF NOT EXISTS people_revision (
 );
 INSERT OR IGNORE INTO people_revision (id, rev) VALUES (1, 1);
 
+-- Погода дома: место (задаётся в админке) и последний прогноз.
+-- Одна строка; нет строки — место не задано.
+CREATE TABLE IF NOT EXISTS weather (
+    id         INTEGER PRIMARY KEY CHECK (id = 1),
+    place      TEXT NOT NULL,
+    latitude   REAL NOT NULL,
+    longitude  REAL NOT NULL,
+    reading    TEXT,
+    fetched_at REAL,
+    expires_at REAL
+);
+
 -- Команды телефону (например, переименовать человека). Телефон получает их при опросе
 -- и сообщает результат; невыполненные отдаются снова.
 CREATE TABLE IF NOT EXISTS commands (

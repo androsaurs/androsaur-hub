@@ -22,6 +22,9 @@ class Settings(BaseSettings):
     port: int = 8000
     # Устройство считается на связи, если обращалось к хабу не раньше этого срока.
     online_window_s: int = 90
+    # Погода: обновлять в фоне (в тестах выключено) и не чаще, чем раз в столько секунд.
+    weather_enabled: bool = True
+    weather_refresh_s: int = 1800
 
 
 @lru_cache

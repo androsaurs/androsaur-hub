@@ -19,6 +19,7 @@ def client(monkeypatch) -> Iterator[TestClient]:
     """
     dsn = f"file:test_{uuid.uuid4().hex}?mode=memory&cache=shared"
     monkeypatch.setenv("HUB_DATABASE_PATH", dsn)
+    monkeypatch.setenv("HUB_WEATHER_ENABLED", "false")  # без фоновых запросов в интернет
     get_settings.cache_clear()
 
     anchor = sqlite3.connect(dsn, uri=True)  # держит in-memory БД живой весь тест

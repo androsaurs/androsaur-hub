@@ -128,6 +128,8 @@ h2 { font-size: 1.1rem; margin: 32px 0 12px; }
   cursor: pointer;
 }
 .setting-form button:hover { opacity: .9; }
+.setting-form input.wide { width: auto; flex: 1 1 200px; min-width: 0; }
+.weather-now { font-size: 1.15rem; margin: 6px 0 2px; }
 
 .setting-foot { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
 button.link { background: none; border: none; color: var(--accent); cursor: pointer; font-size: .85rem; padding: 0; }

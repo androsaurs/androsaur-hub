@@ -40,6 +40,34 @@
 <p class="empty">Настроек пока нет: их присылает телефон при первом подключении.</p>
 {% endif %}
 
+<h2>Погода</h2>
+<div class="setting">
+  {% if weather_place %}
+  <div class="setting-head">
+    <span class="setting-title">{{ weather_place.name }}</span>
+    <span class="setting-source">задано в хабе</span>
+  </div>
+  {% if weather %}
+  <p class="weather-now">{{ weather.temperature | temp }} · {{ weather_text }}{% if weather.wind is not none %} · ветер {{ weather.wind | round | int }} м/с{% endif %}{% if weather.min is not none %} · за 12 ч от {{ weather.min | temp }} до {{ weather.max | temp }}{% endif %}</p>
+  <p class="setting-desc">Обновлено {{ ((now_ms - weather.fetched_at_ms) // 1000) | ago }}; телефоны берут погоду отсюда, без хаба — сами.</p>
+  {% else %}
+  <p class="setting-desc">Прогноз ещё не получен — хаб попробует снова в течение минуты.</p>
+  {% endif %}
+  {% else %}
+  <p class="setting-desc">Место не задано: каждый телефон показывает погоду там, где он находится. Задайте город — и все телефоны дома будут показывать его.</p>
+  {% endif %}
+  <form class="setting-form" method="post" action="/weather/place">
+    <input type="text" name="name" required maxlength="100" placeholder="Город" aria-label="Город для погоды" class="wide">
+    <button type="submit">{% if weather_place %}Сменить{% else %}Задать{% endif %}</button>
+  </form>
+  {% if weather_place %}
+  <form method="post" action="/weather/place/clear" class="setting-foot">
+    <span>Прогноз: <a href="https://www.met.no/">MET Norway</a>, место: <a href="https://www.openstreetmap.org/copyright">© OpenStreetMap</a></span>
+    <button type="submit" class="link">Не задавать — телефоны по своему месту</button>
+  </form>
+  {% endif %}
+</div>
+
 <h2>Устройства</h2>
 {% if devices %}
 <ul class="devices">
