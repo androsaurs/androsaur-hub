@@ -8,7 +8,7 @@
 """
 
 import time
-from datetime import datetime
+from datetime import datetime, timedelta, tzinfo
 from email.utils import parsedate_to_datetime
 from typing import Any, Protocol
 
@@ -45,7 +45,38 @@ def place_from_nominatim(r: dict[str, Any]) -> WeatherPlace:
     return WeatherPlace(name=", ".join(names), latitude=float(r["lat"]), longitude=float(r["lon"]))
 
 
-def reading_from_met(place: str, data: dict[str, Any], now: float) -> WeatherReading:
+def tomorrow_from_met(
+    series: list[dict[str, Any]], now: float, zone: tzinfo | None = None
+) -> tuple[float | None, float | None, str | None]:
+    """Завтра по местному времени: наименьшая и наибольшая температура и код погоды днём
+    (точка ближе всего к полудню, её прогноз на 6 или 1 час)."""
+    local = datetime.fromtimestamp(now, zone).astimezone(zone)
+    tomorrow = (local + timedelta(days=1)).date()
+    temps: list[float] = []
+    best: tuple[float, str] | None = None
+    for point in series:
+        try:
+            at = datetime.fromisoformat(point["time"].replace("Z", "+00:00"))
+        except ValueError:
+            continue
+        at = at.astimezone(local.tzinfo)
+        if at.date() != tomorrow:
+            continue
+        data = point["data"]
+        t = data["instant"]["details"].get("air_temperature")
+        if t is not None:
+            temps.append(t)
+        later = data.get("next_6_hours") or data.get("next_1_hours") or {}
+        code = later.get("summary", {}).get("symbol_code")
+        distance = abs(at.hour + at.minute / 60 - 12)
+        if code and (best is None or distance < best[0]):
+            best = (distance, code)
+    return (min(temps) if temps else None, max(temps) if temps else None, best[1] if best else None)
+
+
+def reading_from_met(
+    place: str, data: dict[str, Any], now: float, zone: tzinfo | None = None
+) -> WeatherReading:
     """Погода из ответа MET: температура, ветер и значок ближайшего часа,
     наименьшая и наибольшая температура за 12 часов."""
     series = data["properties"]["timeseries"]
@@ -67,6 +98,7 @@ def reading_from_met(place: str, data: dict[str, Any], now: float) -> WeatherRea
                 stamp = datetime.fromisoformat(point["time"].replace("Z", "+00:00")).timestamp()
                 later_ms = int(stamp * 1000)
                 break
+    tomorrow_min, tomorrow_max, tomorrow_symbol = tomorrow_from_met(series, now, zone)
     return WeatherReading(
         place=place,
         temperature=details["air_temperature"],
@@ -78,6 +110,9 @@ def reading_from_met(place: str, data: dict[str, Any], now: float) -> WeatherRea
         fetched_at_ms=int(now * 1000),
         later_symbol=later_symbol,
         later_time_ms=later_ms,
+        tomorrow_min=tomorrow_min,
+        tomorrow_max=tomorrow_max,
+        tomorrow_symbol=tomorrow_symbol,
     )
 
 

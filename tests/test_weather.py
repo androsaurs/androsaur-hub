@@ -1,6 +1,13 @@
+from datetime import UTC
+
 import pytest
 
-from app.clients.weather import WeatherError, place_from_nominatim, reading_from_met
+from app.clients.weather import (
+    WeatherError,
+    place_from_nominatim,
+    reading_from_met,
+    tomorrow_from_met,
+)
 from app.dependencies import get_device_service, get_weather_service
 from app.schemas import WeatherPlace, WeatherReading
 from app.services.devices import DeviceService
@@ -176,3 +183,24 @@ def test_rain_later_is_found_and_not_when_it_already_rains():
     assert (reading.later_symbol, reading.later_time_ms) == ("lightrain", 1792940400000)
     raining = reading_from_met("СПб", {"properties": {"timeseries": wet}}, 0)
     assert raining.later_symbol is None
+
+
+def test_tomorrow_is_read_in_the_local_day():
+    def point(t: str, temp: float, symbol: str) -> dict:
+        return {
+            "time": t,
+            "data": {
+                "instant": {"details": {"air_temperature": temp}},
+                "next_6_hours": {"summary": {"symbol_code": symbol}},
+            },
+        }
+
+    series = [
+        point("2026-10-25T20:00:00Z", 9.0, "cloudy"),
+        point("2026-10-26T00:00:00Z", 4.0, "clearsky_night"),
+        point("2026-10-26T12:00:00Z", 9.5, "lightrain"),
+        point("2026-10-26T18:00:00Z", 6.0, "cloudy"),
+        point("2026-10-27T06:00:00Z", 2.0, "fog"),
+    ]
+    now = 1792951200.0  # 2026-10-25 20:00 UTC
+    assert tomorrow_from_met(series, now, UTC) == (4.0, 9.5, "lightrain")

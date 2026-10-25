@@ -173,6 +173,10 @@ class WeatherReading(BaseModel):
     # Ближайшие осадки в следующие 12 часов, если сейчас их нет: код MET и час (мс Unix).
     later_symbol: str | None = Field(default=None, serialization_alias="laterSymbol")
     later_time_ms: int | None = Field(default=None, serialization_alias="laterTimeMs")
+    # Завтра по местному времени дома: наименьшая и наибольшая температура и что ожидается днём.
+    tomorrow_min: float | None = Field(default=None, serialization_alias="tomorrowMin")
+    tomorrow_max: float | None = Field(default=None, serialization_alias="tomorrowMax")
+    tomorrow_symbol: str | None = Field(default=None, serialization_alias="tomorrowSymbol")
 
 
 class DeviceConfig(BaseModel):
