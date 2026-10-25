@@ -4,7 +4,7 @@ install:        ## Установить зависимости (с dev-инст�
 	pip install -e ".[dev]"
 
 run:            ## Запустить сервер
-	uvicorn app.main:app --host $${PORTAL_HOST:-127.0.0.1} --port $${PORTAL_PORT:-8000}
+	uvicorn app.main:app --host $${HUB_HOST:-127.0.0.1} --port $${HUB_PORT:-8000}
 
 dev:            ## Запустить сервер с авто-перезагрузкой
 	uvicorn app.main:app --reload

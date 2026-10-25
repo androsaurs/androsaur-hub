@@ -18,7 +18,7 @@ def client(monkeypatch) -> Iterator[TestClient]:
     нет — setup на порядок(и) быстрее файловой БД (см. CLAUDE.md → «Тесты»).
     """
     dsn = f"file:test_{uuid.uuid4().hex}?mode=memory&cache=shared"
-    monkeypatch.setenv("PORTAL_DATABASE_PATH", dsn)
+    monkeypatch.setenv("HUB_DATABASE_PATH", dsn)
     get_settings.cache_clear()
 
     anchor = sqlite3.connect(dsn, uri=True)  # держит in-memory БД живой весь тест

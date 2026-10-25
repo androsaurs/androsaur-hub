@@ -29,6 +29,52 @@ body {
   letter-spacing: .02em;
 }
 
+.topbar { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
+.nav { display: flex; gap: 16px; }
+.nav a { color: #c7cbe0; text-decoration: none; font-size: .95rem; }
+.nav a[aria-current="page"] { color: #fff; border-bottom: 2px solid var(--accent); }
+
+.people { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+.people li {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+.person-name { font-weight: 600; font-size: 1.05rem; }
+.person-meta { color: var(--muted); font-size: .85rem; }
+.rename-form { display: flex; align-items: center; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.rename-form input {
+  flex: 1 1 160px;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 1rem;
+}
+.rename-form select {
+  flex: 1 1 200px;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 1rem;
+  background: #fff;
+}
+.rename-form button {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  font-size: .95rem;
+  cursor: pointer;
+}
+.commands { list-style: none; display: flex; flex-direction: column; gap: 6px; font-size: .9rem; }
+.commands .state { color: var(--muted); }
+.commands .failed { color: #9b1c1c; }
+.commands .okay { color: #16a34a; }
+
 .container {
   max-width: 720px;
   margin: 32px auto;
@@ -39,22 +85,41 @@ h1 { font-size: 1.4rem; margin-bottom: 8px; }
 
 .hint { color: var(--muted); font-size: .85rem; margin-bottom: 20px; }
 
-.add-form {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 24px;
+h2 { font-size: 1.1rem; margin: 32px 0 12px; }
+
+.error {
+  background: #fdecec;
+  border: 1px solid #f5b5b5;
+  color: #9b1c1c;
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 16px;
 }
 
-.add-form input {
-  flex: 1;
-  padding: 10px 12px;
+.settings, .devices { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+
+.setting, .devices li {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+
+.setting-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.setting-title { font-weight: 600; }
+.setting-source, .setting-desc, .setting-foot, .device-meta, .device-state { color: var(--muted); font-size: .85rem; }
+.setting-desc { margin-top: 2px; }
+
+.setting-form { display: flex; align-items: center; gap: 8px; margin: 10px 0 6px; }
+.setting-form input {
+  width: 120px;
+  padding: 8px 10px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  font-size: .95rem;
+  font-size: 1rem;
 }
-
-.add-form button {
-  padding: 10px 18px;
+.setting-form button {
+  padding: 8px 16px;
   border: none;
   border-radius: 8px;
   background: var(--accent);
@@ -62,21 +127,17 @@ h1 { font-size: 1.4rem; margin-bottom: 8px; }
   font-size: .95rem;
   cursor: pointer;
 }
+.setting-form button:hover { opacity: .9; }
 
-.add-form button:hover { opacity: .9; }
+.setting-foot { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+button.link { background: none; border: none; color: var(--accent); cursor: pointer; font-size: .85rem; padding: 0; }
 
-.items { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.devices li { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.device-name { font-weight: 600; margin-right: 8px; }
+.dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; }
+.dot.on { background: #16a34a; }
+.dot.off { background: #9ca3af; }
 
-.items li {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 12px 16px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.item-date { color: var(--muted); font-size: .8rem; }
+.rev { margin-top: 16px; }
 
 .empty { color: var(--muted); }

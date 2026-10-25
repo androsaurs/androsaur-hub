@@ -1,27 +1,64 @@
 {% extends "base.html" %}
 
 {% block content %}
-<h1>Items</h1>
-<p class="hint">
-  Это демонстрационная сущность шаблона. Замените её на свою предметную область
-  (роутер → сервис → репозиторий → таблица) и удалите этот пример.
-</p>
+<h1>Настройки дома</h1>
+<p class="hint">Действуют на всех телефонах. Телефон забирает их в течение минуты; без хаба он работает на последних полученных.</p>
 
-<form class="add-form" method="post" action="/items">
-  <input type="text" name="title" placeholder="Новый элемент…" required maxlength="200">
-  <button type="submit">Добавить</button>
-</form>
+{% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
 
-{% if items %}
-<ul class="items">
-  {% for item in items %}
-  <li>
-    <span class="item-title">{{ item.title }}</span>
-    <time class="item-date">{{ item.created_at | datetimeformat }}</time>
+{% if settings %}
+<ul class="settings">
+  {% for s in settings %}
+  <li class="setting">
+    <div class="setting-head">
+      <label class="setting-title" for="v-{{ s.field.module }}-{{ s.field.key }}">{{ s.field.title }}</label>
+      <span class="setting-source">
+        {% if s.house_value is none %}по умолчанию{% else %}задано в хабе{% endif %}
+      </span>
+    </div>
+    {% if s.field.description %}<p class="setting-desc">{{ s.field.description }}</p>{% endif %}
+    <form class="setting-form" method="post" action="/settings/{{ s.field.module }}/{{ s.field.key }}">
+      <input id="v-{{ s.field.module }}-{{ s.field.key }}" type="number" name="value" required
+             value="{{ s.effective }}"
+             {% if s.field.min is not none %}min="{{ s.field.min }}"{% endif %}
+             {% if s.field.max is not none %}max="{{ s.field.max }}"{% endif %}>
+      {% if s.field.unit %}<span class="unit">{{ s.field.unit }}</span>{% endif %}
+      <button type="submit">Сохранить</button>
+    </form>
+    <div class="setting-foot">
+      <span>По умолчанию {{ s.field.default }}{% if s.field.unit %} {{ s.field.unit }}{% endif %}{% if s.field.min is not none %} · от {{ s.field.min }} до {{ s.field.max }}{% endif %} · {{ s.field.module }}</span>
+      {% if s.house_value is not none %}
+      <form method="post" action="/settings/{{ s.field.module }}/{{ s.field.key }}/reset">
+        <button type="submit" class="link">Сбросить на умолчание</button>
+      </form>
+      {% endif %}
+    </div>
   </li>
   {% endfor %}
 </ul>
 {% else %}
-<p class="empty">Пока ничего нет. Добавьте первый элемент.</p>
+<p class="empty">Настроек пока нет: их присылает телефон при первом подключении.</p>
 {% endif %}
+
+<h2>Устройства</h2>
+{% if devices %}
+<ul class="devices">
+  {% for d in devices %}
+  <li>
+    <div>
+      <span class="device-name">{{ d.device.name }}</span>
+      <span class="device-meta">{{ d.device.model }}{% if d.device.app_version %} · androsaur {{ d.device.app_version }}{% endif %}</span>
+    </div>
+    <div class="device-state">
+      <span class="dot {{ 'on' if d.online else 'off' }}"></span>
+      {% if d.online %}на связи{% else %}не на связи{% endif %}{% if d.seen_ago_s is not none %}, {{ d.seen_ago_s | ago }}{% endif %}
+      · {% if d.up_to_date %}настройки применены{% else %}ждёт устройство{% endif %}
+    </div>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="empty">Ни один телефон ещё не подключался.</p>
+{% endif %}
+<p class="hint rev">Ревизия настроек {{ revision }}</p>
 {% endblock %}

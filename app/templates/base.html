@@ -9,6 +9,10 @@
 <body>
   <header class="topbar">
     <a class="brand" href="/">{{ app_name }}</a>
+    <nav class="nav">
+      <a href="/" {% if page == 'settings' %}aria-current="page"{% endif %}>Настройки</a>
+      <a href="/people" {% if page == 'people' %}aria-current="page"{% endif %}>Люди</a>
+    </nav>
   </header>
   <main class="container">
     {% block content %}{% endblock %}

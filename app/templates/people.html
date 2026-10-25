@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block title %}Люди · {{ app_name }}{% endblock %}
+
+{% block content %}
+<h1>Люди</h1>
+{% set several = device_count > 1 %}
+<p class="hint">Кого узнают телефоны дома. Новый телефон получает всех сразу и узнаёт их без обучения. Переименование меняет только имя: человек остаётся тем же, и записки, оставленные ему раньше, по-прежнему дойдут до него. Здесь видны только имена и число наборов; сами наборы чисел лица хранятся в хабе и на телефонах, фотографий нет нигде.</p>
+
+{% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+
+{% if incoming %}
+<h2>Новые с телефонов</h2>
+<p class="hint">Этих людей принёс телефон, обученный раньше в другой системе. Если это кто-то из дома — объедините: наборы сложатся, и его записки на том телефоне перейдут к человеку дома.</p>
+<ul class="people">
+  {% for p in incoming %}
+  {% set same = people | selectattr("name", "equalto", p.name) | first %}
+  <li>
+    <div class="person-name">{{ p.name }}</div>
+    <div class="person-meta">С телефона {{ p.origin or "?" }} · наборов: {{ p.samples }}</div>
+    <form class="rename-form" method="post" action="/people/merge">
+      <input type="hidden" name="person" value="{{ p.id }}">
+      <select name="into" aria-label="Что сделать с {{ p.name }}">
+        {% for h in people %}
+        <option value="{{ h.id }}" {% if same and same.id == h.id %}selected{% endif %}>Это {{ h.name }} — объединить</option>
+        {% endfor %}
+        <option value="new" {% if not same %}selected{% endif %}>Новый человек — добавить в дом</option>
+      </select>
+      <button type="submit">Применить</button>
+    </form>
+  </li>
+  {% endfor %}
+</ul>
+<h2>Люди дома</h2>
+{% endif %}
+
+{% if people %}
+<ul class="people">
+  {% for p in people %}
+  <li>
+    <div class="person-name">{{ p.name }}</div>
+    <div class="person-meta">Наборов: {{ p.samples }}{% if several %} · телефоны: {{ p.devices | join(", ") if p.devices else "пока ни одного" }}{% endif %}</div>
+    <form class="rename-form" method="post" action="/people/rename">
+      <input type="hidden" name="person" value="{{ p.id }}">
+      <input type="text" name="to" required maxlength="40" placeholder="Новое имя" aria-label="Новое имя для {{ p.name }}">
+      <button type="submit">Переименовать</button>
+    </form>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="empty">Людей дома пока нет: их принесёт первый телефон, который знает кого-то.</p>
+{% endif %}
+
+{% if commands %}
+<h2>Последние изменения</h2>
+<ul class="commands">
+  {% for c in commands %}
+  <li>
+    {% if c.kind == "merge_person" %}«{{ c.name }}» объединён с «{{ c.to }}»{% else %}«{{ c.name }}» → «{{ c.to }}»{% endif %}{% if several %} на {{ c.device_name }}{% endif %}:
+    {% if not c.done %}<span class="state">ждёт телефон</span>
+    {% elif c.ok %}<span class="okay">готово</span>
+    {% else %}<span class="failed">не вышло — {{ errors.get(c.error, c.error or "неизвестная ошибка") }}</span>{% endif %}
+  </li>
+  {% endfor %}
+</ul>
+{% endif %}
+{% endblock %}

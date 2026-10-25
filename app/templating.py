@@ -1,4 +1,3 @@
-from datetime import datetime
 from pathlib import Path
 
 from fastapi.templating import Jinja2Templates
@@ -10,12 +9,16 @@ TEMPLATES_DIR = Path(__file__).resolve().parent / "templates"
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
 
-def _datetimeformat(value: datetime | str, fmt: str = "%d.%m.%Y %H:%M") -> str:
-    """Jinja-фильтр для дат. Принимает datetime или ISO-строку из SQLite."""
-    if isinstance(value, str):
-        value = datetime.fromisoformat(value)
-    return value.strftime(fmt)
+def _ago(seconds: int) -> str:
+    """Jinja-фильтр: давность в словах («12 с назад», «5 мин назад»)."""
+    if seconds < 60:
+        return f"{max(seconds, 0)} с назад"
+    if seconds < 3600:
+        return f"{seconds // 60} мин назад"
+    if seconds < 86400:
+        return f"{seconds // 3600} ч назад"
+    return f"{seconds // 86400} дн назад"
 
 
-templates.env.filters["datetimeformat"] = _datetimeformat
+templates.env.filters["ago"] = _ago
 templates.env.globals["app_name"] = get_settings().app_name
