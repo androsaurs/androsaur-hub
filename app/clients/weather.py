@@ -58,6 +58,15 @@ def reading_from_met(place: str, data: dict[str, Any], now: float) -> WeatherRea
     temps = [s["data"]["instant"]["details"].get("air_temperature") for s in series[:12]]
     temps = [t for t in temps if t is not None]
     when = datetime.fromisoformat(first["time"].replace("Z", "+00:00")).timestamp()
+    later_symbol, later_ms = None, None
+    if not is_precipitation(symbol):
+        for point in series[1:12]:
+            code = (point["data"].get("next_1_hours") or {}).get("summary", {}).get("symbol_code")
+            if code and is_precipitation(code):
+                later_symbol = code
+                stamp = datetime.fromisoformat(point["time"].replace("Z", "+00:00")).timestamp()
+                later_ms = int(stamp * 1000)
+                break
     return WeatherReading(
         place=place,
         temperature=details["air_temperature"],
@@ -67,7 +76,14 @@ def reading_from_met(place: str, data: dict[str, Any], now: float) -> WeatherRea
         max=max(temps) if temps else None,
         time_ms=int(when * 1000),
         fetched_at_ms=int(now * 1000),
+        later_symbol=later_symbol,
+        later_time_ms=later_ms,
     )
+
+
+def is_precipitation(symbol: str) -> bool:
+    """Дождь, мокрый снег или снег (с грозой или без) в коде MET."""
+    return any(word in symbol for word in ("rain", "sleet", "snow"))
 
 
 class HttpWeatherClient:

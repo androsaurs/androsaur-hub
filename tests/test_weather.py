@@ -158,3 +158,21 @@ def test_nominatim_answer_is_read():
     )
     moscow = {"name": "Москва", "lat": "55.75", "lon": "37.62", "address": {"state": "Москва"}}
     assert place_from_nominatim(moscow).name == "Москва"
+
+
+def test_rain_later_is_found_and_not_when_it_already_rains():
+    def hour(t: str, symbol: str) -> dict:
+        return {
+            "time": t,
+            "data": {
+                "instant": {"details": {"air_temperature": 10.0}},
+                "next_1_hours": {"summary": {"symbol_code": symbol}},
+            },
+        }
+
+    dry = [hour("2026-10-25T06:00:00Z", "cloudy"), hour("2026-10-25T07:00:00Z", "fair_day")]
+    wet = [hour("2026-10-25T15:00:00Z", "lightrain"), hour("2026-10-25T16:00:00Z", "rain")]
+    reading = reading_from_met("СПб", {"properties": {"timeseries": dry + wet}}, 0)
+    assert (reading.later_symbol, reading.later_time_ms) == ("lightrain", 1792940400000)
+    raining = reading_from_met("СПб", {"properties": {"timeseries": wet}}, 0)
+    assert raining.later_symbol is None

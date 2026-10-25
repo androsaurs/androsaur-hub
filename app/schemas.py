@@ -170,6 +170,9 @@ class WeatherReading(BaseModel):
     max: float | None = None
     time_ms: int = Field(serialization_alias="timeMs")
     fetched_at_ms: int = Field(serialization_alias="fetchedAtMs")
+    # Ближайшие осадки в следующие 12 часов, если сейчас их нет: код MET и час (мс Unix).
+    later_symbol: str | None = Field(default=None, serialization_alias="laterSymbol")
+    later_time_ms: int | None = Field(default=None, serialization_alias="laterTimeMs")
 
 
 class DeviceConfig(BaseModel):
