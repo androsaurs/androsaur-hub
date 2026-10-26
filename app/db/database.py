@@ -76,7 +76,9 @@ CREATE TABLE IF NOT EXISTS house_people (
     face_model    TEXT NOT NULL,
     status        TEXT NOT NULL CHECK (status IN ('active', 'pending')),
     origin_device TEXT NOT NULL,
-    created_at    REAL NOT NULL
+    created_at    REAL NOT NULL,
+    -- Роли: как ещё называют человека («папа», «мама») — по ним тоже оставляют записки.
+    roles         TEXT NOT NULL DEFAULT '[]'
 );
 
 -- Наборы чисел лица (биометрия семьи): только в этой базе, не в логах и не в админке.
@@ -105,6 +107,26 @@ CREATE TABLE IF NOT EXISTS integrations (
     checked_at    REAL,
     check_ok      INTEGER,
     check_message TEXT
+);
+
+-- Голосовые записки, которые телефон отдал для расшифровки (Groq). Звук — файл в notes_dir
+-- (пока его хранят: отладка), текст и уверенность Whisper — здесь. status: pending, done, failed.
+CREATE TABLE IF NOT EXISTS hub_notes (
+    id             TEXT PRIMARY KEY,
+    device_id      TEXT NOT NULL,
+    to_label       TEXT NOT NULL DEFAULT '',
+    from_label     TEXT NOT NULL DEFAULT '',
+    created_ms     INTEGER NOT NULL,
+    duration_ms    INTEGER NOT NULL DEFAULT 0,
+    received_at    REAL NOT NULL,
+    status         TEXT NOT NULL DEFAULT 'pending',
+    text           TEXT,
+    confidence     REAL,
+    speech         REAL,
+    usable         INTEGER,
+    error          TEXT,
+    transcribed_at REAL,
+    has_audio      INTEGER NOT NULL DEFAULT 1
 );
 
 -- Погода дома: место (задаётся в админке) и последний прогноз.
@@ -186,6 +208,9 @@ def init_db() -> None:
         if columns and ("person_id" not in columns or "digest" not in columns):
             conn.execute("DROP TABLE device_people")
         # Колонки, появившиеся позже, добавляются в уже созданную базу.
+        house = {row["name"] for row in conn.execute("PRAGMA table_info(house_people)")}
+        if house and "roles" not in house:
+            conn.execute("ALTER TABLE house_people ADD COLUMN roles TEXT NOT NULL DEFAULT '[]'")
         weather = {row["name"] for row in conn.execute("PRAGMA table_info(weather)")}
         if weather and "hours" not in weather:
             conn.execute("ALTER TABLE weather ADD COLUMN hours TEXT")

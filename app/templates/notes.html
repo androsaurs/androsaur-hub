@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block title %}Записки · {{ app_name }}{% endblock %}
+
+{% block content %}
+<h1>Записки</h1>
+<p class="hint">Записки, которые телефоны отдали для расшифровки. {% if groq_on %}Groq включён: надёжные (уверенность от {{ min_confidence }}%) Петя читает голосом, остальные играет записью.{% else %}Groq выключен — записки не расшифровываются и играются записью. Включить — в <a href="/integrations">«Интеграциях»</a>.{% endif %} Звук и текст — слова семьи: хранятся только здесь, 14 дней.</p>
+
+{% if notes %}
+<ul class="people">
+  {% for n in notes %}
+  <li>
+    <div class="setting-head">
+      <span class="setting-title">{{ n.from_label or "кто-то" }} → {{ n.to_label or "?" }}</span>
+      <span class="setting-source">{{ (n.created_ms / 1000) | int | datetimeformat }} · {{ (n.duration_ms / 1000) | round(1) }} с</span>
+    </div>
+    {% if n.status == "done" %}
+    <p class="note-text">«{{ n.text }}»</p>
+    <p class="setting-desc">
+      уверенность {{ n.confidence }}% · речь {{ n.speech }}% ·
+      {% if n.usable %}<span class="okay">Петя читает текстом</span>{% else %}<span class="failed">сомнительно — играет запись</span>{% endif %}
+    </p>
+    {% elif n.status == "pending" %}
+    <p class="setting-desc">ждёт расшифровки{% if n.error %} · {{ n.error }}{% endif %}</p>
+    {% else %}
+    <p class="setting-desc failed">не расшифровалась: {{ n.error }}</p>
+    {% endif %}
+    {% if n.has_audio %}<audio controls preload="none" src="/notes/{{ n.id }}.wav"></audio>{% else %}<p class="setting-desc">звук удалён после расшифровки</p>{% endif %}
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="empty">Записок пока нет: телефон отдаёт их хабу после записи.</p>
+{% endif %}
+{% endblock %}

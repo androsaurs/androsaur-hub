@@ -2,13 +2,15 @@ import time
 from collections.abc import Callable
 from typing import Protocol
 
+from app.clients.groq import GroqClient, Transcript
 from app.clients.weather import WeatherError
 from app.clients.yandex_weather import YandexWeatherClient
 from app.repositories.integrations import IntegrationsRepository
 from app.repositories.weather import WeatherRepository
-from app.schemas import IntegrationView, WeatherPlace, WeatherReading
+from app.schemas import ConfigFieldView, IntegrationView, WeatherPlace, WeatherReading
 
 YANDEX_WEATHER = "yandex_weather"
+GROQ = "groq"
 
 # Где проверять соединение, если место погоды в доме ещё не задано.
 _MOSCOW = WeatherPlace(name="Москва", latitude=55.7558, longitude=37.6173)
@@ -18,12 +20,27 @@ class YandexClient(Protocol):
     def forecast(self, place: WeatherPlace) -> WeatherReading: ...
 
 
+class GroqClientLike(Protocol):
+    def check(self) -> str: ...
+
+    def transcribe(self, wav: bytes) -> Transcript: ...
+
+
+class _Field:
+    """Настройка карточки: ключ, подпись, единица и пределы (целое число)."""
+
+    def __init__(self, key: str, label: str, unit: str, low: int, high: int, default: int) -> None:
+        self.key, self.label, self.unit = key, label, unit
+        self.low, self.high, self.default = low, high, default
+
+
 class _Card:
     def __init__(
-        self, id: str, title: str, description: str, builtin: bool, config: dict[str, int]
+        self, id: str, title: str, description: str, builtin: bool, fields: list[_Field]
     ) -> None:
         self.id, self.title, self.description = id, title, description
-        self.builtin, self.config = builtin, config
+        self.builtin, self.fields = builtin, fields
+        self.config = {f.key: f.default for f in fields}
 
 
 CATALOG = [
@@ -36,7 +53,29 @@ CATALOG = [
         "yandex.ru/pogoda/b2b/smarthome. Пока интеграция включена, погода берётся у Яндекса; "
         "если он не ответил — у MET Norway. Телефоны без хаба по-прежнему берут погоду сами.",
         builtin=False,
-        config={"refresh_min": 120},
+        fields=[_Field("refresh_min", "Спрашивать раз в", "мин", 30, 1440, 120)],
+    ),
+    _Card(
+        GROQ,
+        "Groq — расшифровка записок",
+        "Голосовые записки расшифровываются в текст (Whisper large-v3 turbo, русский), и Петя "
+        "доставляет их голосом синтезатора: «Тебе сообщение от мамы: …». Сомнительная "
+        "расшифровка (уверенность ниже порога) не читается — играет сама запись. «Повтори "
+        "записку» всегда играет оригинал. Звук записок уходит в Groq; текст хранится в хабе и "
+        "на телефоне. Без хаба или без интеграции записки, как раньше, играются записью. Ключ — "
+        "console.groq.com/keys.",
+        builtin=False,
+        fields=[
+            _Field("min_confidence", "Читать текстом при уверенности от", "%", 0, 100, 55),
+            _Field(
+                "keep_audio",
+                "Отладка: хранить звук после расшифровки (1 — да, 0 — нет)",
+                "",
+                0,
+                1,
+                1,
+            ),
+        ],
     ),
     _Card(
         "met_norway",
@@ -45,14 +84,14 @@ CATALOG = [
         "по умолчанию и запасной, если другая погода не ответила. Им же пользуются телефоны "
         "без хаба.",
         builtin=True,
-        config={},
+        fields=[],
     ),
     _Card(
         "osm_nominatim",
         "Поиск места — OpenStreetMap",
         "Находит город для погоды по названию (Nominatim, © участники OpenStreetMap). Без ключа.",
         builtin=True,
-        config={},
+        fields=[],
     ),
 ]
 
@@ -70,10 +109,12 @@ class IntegrationsService:
         weather: WeatherRepository | None = None,
         yandex: Callable[[str], YandexClient] = YandexWeatherClient,
         clock: Callable[[], float] = time.time,
+        groq: Callable[[str], GroqClientLike] = GroqClient,
     ) -> None:
         self._repository = repository or IntegrationsRepository()
         self._weather = weather or WeatherRepository()
         self._yandex = yandex
+        self._groq = groq
         self._clock = clock
 
     def all(self) -> list[IntegrationView]:
@@ -90,6 +131,12 @@ class IntegrationsService:
                     enabled=card.builtin or bool(row and row.enabled),
                     key_hint=f"…{secret[-4:]}" if secret else None,
                     config={**card.config, **(row.config if row else {})},
+                    fields=[
+                        ConfigFieldView(
+                            key=f.key, label=f.label, unit=f.unit, low=f.low, high=f.high
+                        )
+                        for f in card.fields
+                    ],
                     checked_at=row.checked_at if row else None,
                     check_ok=row.check_ok if row else None,
                     check_message=row.check_message if row else None,
@@ -124,13 +171,31 @@ class IntegrationsService:
         self._repository.set_enabled(integration_id, enabled)
 
     def set_refresh(self, integration_id: str, minutes: int) -> None:
+        self.set_config(integration_id, "refresh_min", minutes)
+
+    def set_config(self, integration_id: str, key: str, value: int) -> None:
         card = self._card(integration_id)
-        if not 30 <= minutes <= 1440:
-            raise IntegrationError("Обновлять можно раз в 30–1440 минут")
+        field = next((f for f in card.fields if f.key == key), None)
+        if field is None:
+            raise IntegrationError("Такой настройки нет")
+        if not field.low <= value <= field.high:
+            raise IntegrationError(f"«{field.label}»: от {field.low} до {field.high}")
         row = self._repository.get(integration_id)
         self._repository.set_config(
-            integration_id, {**card.config, **(row.config if row else {}), "refresh_min": minutes}
+            integration_id, {**card.config, **(row.config if row else {}), key: value}
         )
+
+    def groq(self) -> tuple[str, int, bool] | None:
+        """Ключ Groq, порог уверенности (%) и хранить ли звук, если интеграция включена."""
+        row = self._repository.get(GROQ)
+        if not (row and row.enabled and row.secret):
+            return None
+        card = self._card(GROQ)
+        config = {**card.config, **row.config}
+        return row.secret, int(config["min_confidence"]), bool(config["keep_audio"])
+
+    def groq_client(self, key: str) -> GroqClientLike:
+        return self._groq(key)
 
     def check(self, integration_id: str) -> tuple[bool, str]:
         """Проверить соединение настоящим запросом. Погода из ответа сразу становится погодой
@@ -139,6 +204,14 @@ class IntegrationsService:
         row = self._repository.get(integration_id)
         if not (row and row.secret):
             raise IntegrationError("Сначала введите ключ")
+        if integration_id == GROQ:
+            try:
+                message = f"Работает: {self._groq(row.secret).check()}"
+                ok = True
+            except WeatherError as e:
+                message, ok = f"Не вышло: {e}", False
+            self._repository.set_check(integration_id, ok, message, self._clock())
+            return ok, message
         stored = self._weather.get()
         place = stored[0] if stored else _MOSCOW
         now = self._clock()

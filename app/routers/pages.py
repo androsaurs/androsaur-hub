@@ -3,18 +3,20 @@ from collections.abc import Callable
 from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, Form, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 
 from app.clients.weather import WeatherError
 from app.dependencies import (
     get_device_service,
     get_integrations_service,
+    get_notes_service,
     get_people_service,
     get_settings_service,
     get_weather_service,
 )
 from app.services.devices import DeviceService
 from app.services.integrations import IntegrationError, IntegrationsService
+from app.services.notes import NotesService
 from app.services.people import ERRORS, PeopleService, PersonError
 from app.services.settings import SettingError, SettingsService
 from app.services.weather import WeatherService, describe
@@ -124,6 +126,19 @@ def rename_person(
 ) -> RedirectResponse:
     try:
         people.rename(person, to)
+    except PersonError as e:
+        return _back(str(e), "/people")
+    return _back(path="/people")
+
+
+@router.post("/people/roles")
+def set_person_roles(
+    person: str = Form(...),
+    roles: str = Form(""),
+    people: PeopleService = Depends(get_people_service),
+) -> RedirectResponse:
+    try:
+        people.set_roles(person, roles)
     except PersonError as e:
         return _back(str(e), "/people")
     return _back(path="/people")
@@ -245,6 +260,44 @@ def set_integration_refresh(
     integrations: IntegrationsService = Depends(get_integrations_service),
 ) -> RedirectResponse:
     return _integration(lambda: integrations.set_refresh(integration_id, minutes))
+
+
+@router.post("/integrations/{integration_id}/config")
+def set_integration_config(
+    integration_id: str,
+    key: str = Form(...),
+    value: int = Form(...),
+    integrations: IntegrationsService = Depends(get_integrations_service),
+) -> RedirectResponse:
+    return _integration(lambda: integrations.set_config(integration_id, key, value))
+
+
+@router.get("/notes", response_class=HTMLResponse)
+def notes_page(
+    request: Request,
+    notes: NotesService = Depends(get_notes_service),
+    integrations: IntegrationsService = Depends(get_integrations_service),
+) -> HTMLResponse:
+    """Записки в хабе: оригинал, расшифровка и решение — читать текстом или играть запись."""
+    groq = integrations.groq()
+    return templates.TemplateResponse(
+        request,
+        "notes.html",
+        {
+            "page": "notes",
+            "notes": notes.recent(),
+            "groq_on": groq is not None,
+            "min_confidence": groq[1] if groq else None,
+        },
+    )
+
+
+@router.get("/notes/{note_id}.wav")
+def note_audio(note_id: str, notes: NotesService = Depends(get_notes_service)) -> Response:
+    data = notes.audio(note_id) if note_id.isalnum() else None
+    if data is None:
+        return Response(status_code=404)
+    return Response(content=data, media_type="audio/wav")
 
 
 @router.post("/integrations/{integration_id}/check")

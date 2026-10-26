@@ -9,6 +9,7 @@ from app.schemas import (
     PeopleUpload,
     PersonReport,
     PersonView,
+    RoleSet,
     valid_person_name,
 )
 
@@ -154,6 +155,39 @@ class PeopleService:
         args = {"person": person_id, "name": person.name, "to": to}
         for device_id in self._repository.devices_knowing(person_id):
             self._repository.add_command(device_id, "rename_person", args, now)
+
+    def set_roles(self, person_id: str, text: str) -> None:
+        """Как ещё называют человека: слова через запятую («папа, муж»). Пусто — ролей нет."""
+        house = self._repository.house()
+        person = house.get(person_id)
+        if person is None or person.status != "active":
+            raise PersonError("Такого человека нет")
+        words: list[str] = []
+        for raw in text.replace(";", ",").split(","):
+            word = " ".join(raw.split()).lower()
+            if not word:
+                continue
+            if not valid_person_name(word) or len(word) > 30:
+                raise PersonError(f"Роль «{word}»: буквы, пробел и дефис, до 30 символов")
+            if word not in words:
+                words.append(word)
+        if len(words) > 5:
+            raise PersonError("Не больше пяти ролей у человека")
+        names = {p.name.casefold(): p for p in house.values() if p.status == "active"}
+        for word in words:
+            other = names.get(word.casefold())
+            if other is not None:
+                raise PersonError(f"«{word}» — уже имя человека ({other.name})")
+        for _, view in self._repository.views():
+            if view.id == person_id:
+                continue
+            taken = set(view.roles) & set(words)
+            if taken:
+                raise PersonError(f"Роль «{taken.pop()}» уже у {view.name}")
+        self._repository.set_roles(person_id, words)
+
+    def roles(self) -> list[RoleSet]:
+        return self._repository.roles()
 
     def add_new(self, person_id: str) -> None:
         """Человек с телефона из другой системы — новый человек дома."""

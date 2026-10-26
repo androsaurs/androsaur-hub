@@ -197,6 +197,14 @@ class WeatherReading(BaseModel):
     hours: list[HourPoint] | None = None
 
 
+class RoleSet(BaseModel):
+    """Роли человека для телефона: «передай папе» — это ему (по постоянному ID)."""
+
+    person: str
+    name: str
+    words: list[str]
+
+
 class DeviceConfig(BaseModel):
     """Настройки, которые хаб задаёт устройству, и команды, которые оно ещё не выполнило.
 
@@ -210,6 +218,10 @@ class DeviceConfig(BaseModel):
     upload: list[str] = Field(default_factory=list)
     # Место погоды, заданное в доме (null — не задано: телефон берёт своё), и погода для него.
     weather_place: WeatherPlace | None = Field(default=None, serialization_alias="weatherPlace")
+    # Надёжные расшифровки записок этого телефона: он кладёт их к запискам.
+    transcripts: list["NoteText"] = Field(default_factory=list)
+    # Роли людей дома; телефон кладёт их в книгу адресатов.
+    roles: list[RoleSet] = Field(default_factory=list)
     weather: WeatherReading | None = None
 
 
@@ -222,6 +234,7 @@ class PersonView(BaseModel):
     samples: int
     devices: list[str]
     origin: str = ""
+    roles: list[str] = Field(default_factory=list)
 
 
 class CommandView(BaseModel):
@@ -239,6 +252,14 @@ class CommandView(BaseModel):
     error: str | None
 
 
+class ConfigFieldView(BaseModel):
+    key: str
+    label: str
+    unit: str
+    low: int
+    high: int
+
+
 class IntegrationView(BaseModel):
     """Карточка интеграции для админки (без ключа: только его последние символы)."""
 
@@ -249,6 +270,7 @@ class IntegrationView(BaseModel):
     enabled: bool
     key_hint: str | None
     config: dict[str, int]
+    fields: list[ConfigFieldView] = Field(default_factory=list)
     checked_at: float | None
     check_ok: bool | None
     check_message: str | None
@@ -281,3 +303,28 @@ class SettingView(BaseModel):
     @property
     def effective(self) -> int:
         return self.field.default if self.house_value is None else self.house_value
+
+
+class HubNote(BaseModel):
+    """Записка в хабе: что о ней известно и чем закончилась расшифровка."""
+
+    id: str
+    device_id: str
+    to_label: str
+    from_label: str
+    created_ms: int
+    duration_ms: int
+    status: str
+    text: str | None
+    confidence: float | None
+    speech: float | None
+    usable: bool | None
+    error: str | None
+    has_audio: bool
+
+
+class NoteText(BaseModel):
+    """Расшифровка для телефона: только надёжные — их Петя читает голосом."""
+
+    id: str
+    text: str

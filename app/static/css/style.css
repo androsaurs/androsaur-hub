@@ -168,3 +168,10 @@ button.link { background: none; border: none; color: var(--accent); cursor: poin
 
 /* Страница, встроенная в телефон (WebView): без меню, узкие поля. */
 .container.embed { margin: 8px auto; padding: 0 6px; }
+
+.note-text { font-size: 1.05rem; margin: 6px 0 2px; }
+.people audio { width: 100%; margin-top: 8px; }
+.okay { color: #166534; }
+.failed { color: #9b1c1c; }
+
+.rename-form button.secondary { background: #fff; color: var(--fg); border: 1px solid var(--border); }

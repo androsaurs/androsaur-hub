@@ -247,3 +247,32 @@ def test_one_phone_shows_no_phone_names(client):
     join(client, OTHER, "Кухня")
     assert "телефоны: Redmi 12" in client.get("/people").text
     assert sync(client).status_code == 200
+
+
+def test_roles_reach_the_phones_and_follow_the_person(client):
+    register(client)
+    join(client, DEVICE, "Redmi 12", [PAPA, KATYA])
+    # The owner's case: called «Женя» again, and «папа» as his role.
+    client.post("/people/rename", data={"person": PAPA["id"], "to": "Женя"})
+    reply = client.post("/people/roles", data={"person": PAPA["id"], "roles": " Папа ,  муж, папа"})
+    assert reply.status_code == 200 and 'value="папа, муж"' in reply.text
+    roles = phone_sync(client, DEVICE, [PAPA, KATYA])["roles"]
+    assert roles == [{"person": PAPA["id"], "name": "Женя", "words": ["папа", "муж"]}]
+
+
+def test_bad_roles_are_refused(client):
+    register(client)
+    join(client, DEVICE, "Redmi 12", [PAPA, KATYA])
+    client.post("/people/roles", data={"person": PAPA["id"], "roles": "муж"})
+    cases = {
+        "катя": "уже имя человека",
+        "муж": "уже у Папа",
+        "папа": "уже имя человека",
+        "мама!": "буквы, пробел и дефис",
+        "а, б, в, г, д, е": "Не больше пяти",
+    }
+    for roles, error in cases.items():
+        reply = client.post("/people/roles", data={"person": KATYA["id"], "roles": roles})
+        assert error in reply.text, roles
+    client.post("/people/roles", data={"person": PAPA["id"], "roles": ""})
+    assert phone_sync(client, DEVICE, [PAPA, KATYA])["roles"] == []

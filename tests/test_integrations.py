@@ -177,7 +177,10 @@ def test_bad_input_is_refused(hub):
     )
     assert "Сначала введите ключ" in hub.post("/integrations/yandex_weather/check").text
     hub.post("/integrations/yandex_weather/key", data={"key": KEY})
-    assert "30–1440" in hub.post("/integrations/yandex_weather/refresh", data={"minutes": 5}).text
+    assert (
+        "от 30 до 1440"
+        in hub.post("/integrations/yandex_weather/refresh", data={"minutes": 5}).text
+    )
     assert (
         "Такой интеграции нет" in hub.post("/integrations/met_norway/key", data={"key": KEY}).text
     )

@@ -10,6 +10,7 @@ from app.schemas import (
     PersonReport,
     PersonVectors,
     PersonView,
+    RoleSet,
 )
 
 
@@ -187,7 +188,7 @@ class PeopleRepository:
         with get_connection() as conn:
             rows = conn.execute(
                 """
-                SELECT h.id, h.name, h.status,
+                SELECT h.id, h.name, h.status, h.roles,
                        (SELECT COUNT(*) FROM house_vectors v WHERE v.person_id = h.id) AS samples,
                        COALESCE(o.name, '') AS origin
                 FROM house_people h LEFT JOIN devices o ON o.id = h.origin_device
@@ -212,10 +213,26 @@ class PeopleRepository:
                     samples=row["samples"],
                     devices=devices.get(row["id"], []),
                     origin=row["origin"],
+                    roles=json.loads(row["roles"] or "[]"),
                 ),
             )
             for row in rows
         ]
+
+    def set_roles(self, person_id: str, roles: list[str]) -> None:
+        with get_connection() as conn:
+            conn.execute(
+                "UPDATE house_people SET roles = ? WHERE id = ?",
+                (json.dumps(roles, ensure_ascii=False), person_id),
+            )
+
+    def roles(self) -> list[RoleSet]:
+        """Роли людей дома (у кого они есть)."""
+        with get_connection() as conn:
+            rows = conn.execute(
+                "SELECT id, name, roles FROM house_people WHERE status = 'active' AND roles != '[]'"
+            ).fetchall()
+        return [RoleSet(person=r["id"], name=r["name"], words=json.loads(r["roles"])) for r in rows]
 
     def bump(self) -> int:
         with get_connection() as conn:

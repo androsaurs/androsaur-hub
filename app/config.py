@@ -25,6 +25,9 @@ class Settings(BaseSettings):
     # Погода: обновлять в фоне (в тестах выключено) и не чаще, чем раз в столько секунд.
     weather_enabled: bool = True
     weather_refresh_s: int = 1800
+    # Звук голосовых записок (для расшифровки), вне git; и сколько дней хранить записки.
+    notes_dir: Path = Path("data/notes")
+    notes_keep_days: int = 14
 
 
 @lru_cache

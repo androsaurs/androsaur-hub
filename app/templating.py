@@ -26,6 +26,14 @@ def _temp(value: float) -> str:
     return "0°" if t == 0 else (f"+{t}°" if t > 0 else f"−{-t}°")
 
 
+def _datetimeformat(value: float) -> str:
+    """Jinja-фильтр: момент Unix (с) по местному времени хаба — «26.10 08:51»."""
+    from datetime import datetime
+
+    return datetime.fromtimestamp(value).strftime("%d.%m %H:%M")
+
+
 templates.env.filters["ago"] = _ago
+templates.env.filters["datetimeformat"] = _datetimeformat
 templates.env.filters["temp"] = _temp
 templates.env.globals["app_name"] = get_settings().app_name

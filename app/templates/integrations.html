@@ -48,14 +48,15 @@
     </p>
     {% endif %}
 
-    {% if 'refresh_min' in i.config %}
-    <form class="setting-form" method="post" action="/integrations/{{ i.id }}/refresh">
-      <label for="r-{{ i.id }}" class="setting-desc">Спрашивать раз в</label>
-      <input id="r-{{ i.id }}" type="number" style="width: 90px" name="minutes" min="30" max="1440" value="{{ i.config.refresh_min }}" required>
-      <span class="unit">мин</span>
+    {% for f in i.fields %}
+    <form class="setting-form" method="post" action="/integrations/{{ i.id }}/config">
+      <input type="hidden" name="key" value="{{ f.key }}">
+      <label for="c-{{ i.id }}-{{ f.key }}" class="setting-desc">{{ f.label }}</label>
+      <input id="c-{{ i.id }}-{{ f.key }}" type="number" style="width: 90px" name="value" min="{{ f.low }}" max="{{ f.high }}" value="{{ i.config[f.key] }}" required>
+      {% if f.unit %}<span class="unit">{{ f.unit }}</span>{% endif %}
       <button type="submit" class="secondary">Сохранить</button>
     </form>
-    {% endif %}
+    {% endfor %}
     {% endif %}
   </li>
   {% endfor %}

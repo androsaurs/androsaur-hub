@@ -5,7 +5,7 @@
 {% block content %}
 <h1>Люди</h1>
 {% set several = device_count > 1 %}
-<p class="hint">Кого узнают телефоны дома. Новый телефон получает всех сразу и узнаёт их без обучения. Переименование меняет только имя: человек остаётся тем же, и записки, оставленные ему раньше, по-прежнему дойдут до него. Здесь видны только имена и число наборов; сами наборы чисел лица хранятся в хабе и на телефонах, фотографий нет нигде.</p>
+<p class="hint">Кого узнают телефоны дома. Новый телефон получает всех сразу и узнаёт их без обучения. Роли — как ещё называют человека («папа», «мама»): «передай папе» тоже дойдёт до него. Переименование меняет только имя: человек остаётся тем же, и записки, оставленные ему раньше, по-прежнему дойдут до него. Здесь видны только имена и число наборов; сами наборы чисел лица хранятся в хабе и на телефонах, фотографий нет нигде.</p>
 
 {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
 
@@ -44,6 +44,11 @@
       <input type="hidden" name="person" value="{{ p.id }}">
       <input type="text" name="to" required maxlength="40" placeholder="Новое имя" aria-label="Новое имя для {{ p.name }}">
       <button type="submit">Переименовать</button>
+    </form>
+    <form class="rename-form" method="post" action="/people/roles">
+      <input type="hidden" name="person" value="{{ p.id }}">
+      <input type="text" name="roles" maxlength="160" value="{{ p.roles | join(', ') }}" placeholder="Как ещё называют: папа, муж" aria-label="Роли {{ p.name }}">
+      <button type="submit" class="secondary">Роли</button>
     </form>
   </li>
   {% endfor %}
