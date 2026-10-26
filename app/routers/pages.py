@@ -149,9 +149,12 @@ def merge_person(
 @router.get("/weather", response_class=HTMLResponse)
 def weather_page(
     request: Request,
+    embed: bool = False,
     weather: WeatherService = Depends(get_weather_service),
 ) -> HTMLResponse:
-    """Прогноз по часам на графике: от текущего часа до конца того, что отдал источник."""
+    """Прогноз по часам на графике: от текущего часа до конца того, что отдал источник.
+
+    ``embed=1`` — только графики, без меню: так страницу открывает телефон у себя в WebView."""
     place, reading = weather.current()
     now_ms = int(time.time() * 1000)
     points = [
@@ -174,6 +177,7 @@ def weather_page(
         "weather.html",
         {
             "page": "weather",
+            "embed": embed,
             "place": place,
             "reading": reading,
             "now_ms": now_ms,

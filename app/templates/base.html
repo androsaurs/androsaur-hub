@@ -6,7 +6,8 @@
   <title>{% block title %}{{ app_name }}{% endblock %}</title>
   <link rel="stylesheet" href="{{ url_for('static', path='css/style.css') }}">
 </head>
-<body>
+<body{% if embed %} class="embed"{% endif %}>
+  {% if not embed %}
   <header class="topbar">
     <a class="brand" href="/">{{ app_name }}</a>
     <nav class="nav">
@@ -16,7 +17,8 @@
       <a href="/integrations" {% if page == 'integrations' %}aria-current="page"{% endif %}>Интеграции</a>
     </nav>
   </header>
-  <main class="container">
+  {% endif %}
+  <main class="container{% if embed %} embed{% endif %}">
     {% block content %}{% endblock %}
   </main>
 </body>

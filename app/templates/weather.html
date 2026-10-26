@@ -40,6 +40,23 @@
   .viz-tip .row i { width: 12px; height: 2px; border-radius: 1px; flex: none; }
   .viz-tip .row strong { font-weight: 600; color: var(--text-primary); min-width: 52px; }
   .viz-tip .row span { color: var(--text-secondary); }
+  /* The phone (WebView, embed=1): only the charts, on black — the same hues stepped for a dark surface, validated on #000.
+     The precipitation, a single titled series in its own chart, is neutral gray: a fourth hue is not tellable from the three. */
+  body.embed { background: #000; }
+  body.embed .viz-root {
+    --surface-1: #000;
+    --text-primary: #f0efec;
+    --text-secondary: #c3c2b7;
+    --text-muted: #8f8e88;
+    --grid: #2a2a28;
+    --series-temp: #3987e5;
+    --series-feels: #d95926;
+    --series-wind: #199e70;
+    --series-precip: #a3a29b;
+    border: none;
+    padding: 6px 4px 4px;
+  }
+  body.embed .viz-tip { background: #1a1a19; border-color: #3a3a37; box-shadow: none; }
   .weather-table { width: 100%; border-collapse: collapse; font-size: .85rem; font-variant-numeric: tabular-nums; }
   .weather-table th, .weather-table td { text-align: right; padding: 4px 6px; border-bottom: 1px solid var(--border); white-space: nowrap; }
   .weather-table th:first-child, .weather-table td:first-child, .weather-table td.sky { text-align: left; }
@@ -48,13 +65,15 @@
   details.hours summary { cursor: pointer; color: var(--accent); }
 </style>
 
-<h1>Погода</h1>
+{% if not embed %}<h1>Погода</h1>{% endif %}
 {% if not reading or not chart.points %}
-<p class="empty">Прогноза по часам пока нет. Задайте город в <a href="/">настройках</a> — хаб получит прогноз в течение минуты.</p>
+<p class="empty"{% if embed %} style="color:#c3c2b7"{% endif %}>Прогноза по часам пока нет. Задайте город в <a href="/">настройках</a> — хаб получит прогноз в течение минуты.</p>
 {% else %}
+{% if not embed %}
 <p class="hint">{{ place.name if place else reading.place }} · от этого часа до конца
   {% if reading.source == "Яндекс Погода" %}завтрашнего дня{% else %}прогноза{% endif %},
   по часам · {{ reading.source or "источник неизвестен" }}, обновлено {{ ((now_ms - reading.fetched_at_ms) // 1000) | ago }}.</p>
+{% endif %}
 
 <div class="viz-root" id="viz">
   <div class="viz-panel-title"><b>Температура, °C</b>
@@ -72,6 +91,7 @@
   <div class="viz-tip" id="tip" role="status" aria-live="polite"></div>
 </div>
 
+{% if not embed %}
 <details class="hours">
   <summary>Таблица по часам</summary>
   <div class="table-wrap">
@@ -81,6 +101,7 @@
     </table>
   </div>
 </details>
+{% endif %}
 
 <script type="application/json" id="chart-data">{{ chart | tojson }}</script>
 <script>
@@ -93,7 +114,8 @@
   const precip = p => byProb ? p.prob : p.mm;
   const precipUnit = byProb ? "%" : " мм";
   document.getElementById("precip-title").textContent = byProb ? "Вероятность осадков, %" : "Осадки, мм в час";
-  document.getElementById("th-precip").textContent = byProb ? "Осадки, %" : "Осадки, мм";
+  const th = document.getElementById("th-precip");
+  if (th) th.textContent = byProb ? "Осадки, %" : "Осадки, мм";
   if (!hasFeels) document.getElementById("key-feels").remove();
   if (!hasGust) document.getElementById("key-gust").remove();
 
@@ -264,7 +286,7 @@
 
   // The table: every value without hovering.
   const body = document.querySelector("#table tbody");
-  for (const p of P) {
+  if (body) for (const p of P) {
     const tr = document.createElement("tr");
     for (const [text, cls] of [[day(p.t) + ", " + hour(p.t)], [fmtT(p.temp)], [fmtT(p.feels)], [fmtN(p.wind)], [fmtN(p.gust)],
       [precip(p) == null ? "—" : fmtN(precip(p)) + precipUnit], [p.text, "sky"]]) {

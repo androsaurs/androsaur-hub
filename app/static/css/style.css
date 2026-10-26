@@ -165,3 +165,6 @@ button.link { background: none; border: none; color: var(--accent); cursor: poin
 .check { font-size: .9rem; margin: 6px 0; }
 .check.okay { color: #166534; }
 .check.failed { color: #9b1c1c; }
+
+/* Страница, встроенная в телефон (WebView): без меню, узкие поля. */
+.container.embed { margin: 8px auto; padding: 0 6px; }
