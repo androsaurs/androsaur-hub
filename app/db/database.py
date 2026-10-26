@@ -95,6 +95,18 @@ CREATE TABLE IF NOT EXISTS people_revision (
 );
 INSERT OR IGNORE INTO people_revision (id, rev) VALUES (1, 1);
 
+-- Интеграции с внешними сервисами (карточки раздела «Интеграции»). secret — ключ доступа: только
+-- здесь, не в логах и не в админке (там последние 4 символа).
+CREATE TABLE IF NOT EXISTS integrations (
+    id            TEXT PRIMARY KEY,
+    enabled       INTEGER NOT NULL DEFAULT 0,
+    secret        TEXT,
+    config        TEXT NOT NULL DEFAULT '{}',
+    checked_at    REAL,
+    check_ok      INTEGER,
+    check_message TEXT
+);
+
 -- Погода дома: место (задаётся в админке) и последний прогноз.
 -- Одна строка; нет строки — место не задано.
 CREATE TABLE IF NOT EXISTS weather (
@@ -104,7 +116,8 @@ CREATE TABLE IF NOT EXISTS weather (
     longitude  REAL NOT NULL,
     reading    TEXT,
     fetched_at REAL,
-    expires_at REAL
+    expires_at REAL,
+    hours      TEXT
 );
 
 -- Команды телефону (например, переименовать человека). Телефон получает их при опросе
@@ -173,6 +186,9 @@ def init_db() -> None:
         if columns and ("person_id" not in columns or "digest" not in columns):
             conn.execute("DROP TABLE device_people")
         # Колонки, появившиеся позже, добавляются в уже созданную базу.
+        weather = {row["name"] for row in conn.execute("PRAGMA table_info(weather)")}
+        if weather and "hours" not in weather:
+            conn.execute("ALTER TABLE weather ADD COLUMN hours TEXT")
         have = {row["name"] for row in conn.execute("PRAGMA table_info(devices)")}
         for column, ddl in _DEVICE_COLUMNS.items():
             if have and column not in have:

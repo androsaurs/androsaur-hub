@@ -1,5 +1,7 @@
+import json
+
 from app.db.database import get_connection
-from app.schemas import WeatherPlace, WeatherReading
+from app.schemas import HourPoint, WeatherPlace, WeatherReading
 
 
 class WeatherRepository:
@@ -18,6 +20,8 @@ class WeatherRepository:
         )
         raw = row["reading"]
         reading = None if raw is None else WeatherReading.model_validate_json(raw)
+        if reading is not None and row["hours"]:
+            reading.hours = [HourPoint(**h) for h in json.loads(row["hours"])]
         return place, reading, row["expires_at"] or 0.0
 
     def set_place(self, place: WeatherPlace) -> None:
@@ -27,7 +31,7 @@ class WeatherRepository:
                 INSERT INTO weather (id, place, latitude, longitude) VALUES (1, ?, ?, ?)
                 ON CONFLICT (id) DO UPDATE SET place = excluded.place,
                     latitude = excluded.latitude, longitude = excluded.longitude,
-                    reading = NULL, fetched_at = NULL, expires_at = NULL
+                    reading = NULL, fetched_at = NULL, expires_at = NULL, hours = NULL
                 """,
                 (place.name, place.latitude, place.longitude),
             )
@@ -35,8 +39,16 @@ class WeatherRepository:
     def set_reading(self, reading: WeatherReading, fetched_at: float, expires_at: float) -> None:
         with get_connection() as conn:
             conn.execute(
-                "UPDATE weather SET reading = ?, fetched_at = ?, expires_at = ? WHERE id = 1",
-                (reading.model_dump_json(), fetched_at, expires_at),
+                "UPDATE weather SET reading = ?, fetched_at = ?, expires_at = ?, hours = ? "
+                "WHERE id = 1",
+                (
+                    reading.model_dump_json(exclude={"hours"}),
+                    fetched_at,
+                    expires_at,
+                    None
+                    if reading.hours is None
+                    else json.dumps([h.model_dump() for h in reading.hours]),
+                ),
             )
 
     def clear(self) -> None:

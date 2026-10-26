@@ -1,0 +1,282 @@
+{% extends "base.html" %}
+
+{% block title %}Погода · {{ app_name }}{% endblock %}
+
+{% block content %}
+<style>
+  /* Цвета графика по ролям (эталонная палитра, проверена на различимость при дальтонизме). */
+  .viz-root {
+    --surface-1: #fcfcfb;
+    --text-primary: #1a1a2e;
+    --text-secondary: #52514e;
+    --text-muted: #8a8984;
+    --grid: #ebeae6;
+    --series-temp: #2a78d6;
+    --series-feels: #eb6834;
+    --series-wind: #1baf7a;
+    --series-precip: #6250d6;
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 12px 10px;
+    position: relative;
+  }
+  .viz-panel-title { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 14px; margin: 6px 4px 2px; font-size: .9rem; color: var(--text-primary); }
+  .viz-panel-title b { font-weight: 600; margin-right: 4px; }
+  .viz-key { display: inline-flex; align-items: center; gap: 6px; color: var(--text-secondary); font-size: .85rem; }
+  .viz-key i { display: inline-block; width: 14px; height: 2px; border-radius: 1px; }
+  .viz-key i.wash { height: 10px; border-radius: 2px; }
+  .viz-svg { display: block; width: 100%; height: auto; overflow: visible; }
+  .viz-svg text { font: 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; fill: var(--text-muted); font-variant-numeric: tabular-nums; }
+  .viz-svg text.label { fill: var(--text-secondary); font-size: 12px; }
+  .viz-hit:focus { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .viz-tip {
+    position: absolute; pointer-events: none; background: #fff; border: 1px solid var(--border);
+    border-radius: 8px; padding: 8px 10px; font-size: .85rem; box-shadow: 0 4px 16px rgba(0,0,0,.08);
+    min-width: 170px; display: none; z-index: 2;
+  }
+  .viz-tip .when { color: var(--text-secondary); margin-bottom: 4px; }
+  .viz-tip .row { display: flex; align-items: center; gap: 8px; line-height: 1.5; }
+  .viz-tip .row i { width: 12px; height: 2px; border-radius: 1px; flex: none; }
+  .viz-tip .row strong { font-weight: 600; color: var(--text-primary); min-width: 52px; }
+  .viz-tip .row span { color: var(--text-secondary); }
+  .weather-table { width: 100%; border-collapse: collapse; font-size: .85rem; font-variant-numeric: tabular-nums; }
+  .weather-table th, .weather-table td { text-align: right; padding: 4px 6px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  .weather-table th:first-child, .weather-table td:first-child, .weather-table td.sky { text-align: left; }
+  .table-wrap { overflow-x: auto; }
+  details.hours { margin-top: 14px; }
+  details.hours summary { cursor: pointer; color: var(--accent); }
+</style>
+
+<h1>Погода</h1>
+{% if not reading or not chart.points %}
+<p class="empty">Прогноза по часам пока нет. Задайте город в <a href="/">настройках</a> — хаб получит прогноз в течение минуты.</p>
+{% else %}
+<p class="hint">{{ place.name if place else reading.place }} · от этого часа до конца
+  {% if reading.source == "Яндекс Погода" %}завтрашнего дня{% else %}прогноза{% endif %},
+  по часам · {{ reading.source or "источник неизвестен" }}, обновлено {{ ((now_ms - reading.fetched_at_ms) // 1000) | ago }}.</p>
+
+<div class="viz-root" id="viz">
+  <div class="viz-panel-title"><b>Температура, °C</b>
+    <span class="viz-key"><i style="background: var(--series-temp)"></i>температура</span>
+    <span class="viz-key" id="key-feels"><i style="background: var(--series-feels)"></i>ощущается как</span>
+  </div>
+  <svg class="viz-svg" id="p-temp" role="img" aria-label="Температура по часам"></svg>
+  <div class="viz-panel-title"><b>Ветер, м/с</b>
+    <span class="viz-key"><i style="background: var(--series-wind)"></i>скорость</span>
+    <span class="viz-key" id="key-gust"><i class="wash" style="background: color-mix(in srgb, var(--series-wind) 18%, transparent)"></i>порывы</span>
+  </div>
+  <svg class="viz-svg" id="p-wind" role="img" aria-label="Ветер по часам"></svg>
+  <div class="viz-panel-title"><b id="precip-title">Осадки</b></div>
+  <svg class="viz-svg" id="p-precip" role="img" aria-label="Осадки по часам"></svg>
+  <div class="viz-tip" id="tip" role="status" aria-live="polite"></div>
+</div>
+
+<details class="hours">
+  <summary>Таблица по часам</summary>
+  <div class="table-wrap">
+    <table class="weather-table" id="table">
+      <thead><tr><th>Час</th><th>Темп.</th><th>Ощущ.</th><th>Ветер</th><th>Порывы</th><th id="th-precip">Осадки</th><th>Явление</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</details>
+
+<script type="application/json" id="chart-data">{{ chart | tojson }}</script>
+<script>
+(() => {
+  const D = JSON.parse(document.getElementById("chart-data").textContent);
+  const P = D.points;
+  const hasFeels = P.some(p => p.feels != null);
+  const hasGust = P.some(p => p.gust != null);
+  const byProb = P.some(p => p.prob != null);
+  const precip = p => byProb ? p.prob : p.mm;
+  const precipUnit = byProb ? "%" : " мм";
+  document.getElementById("precip-title").textContent = byProb ? "Вероятность осадков, %" : "Осадки, мм в час";
+  document.getElementById("th-precip").textContent = byProb ? "Осадки, %" : "Осадки, мм";
+  if (!hasFeels) document.getElementById("key-feels").remove();
+  if (!hasGust) document.getElementById("key-gust").remove();
+
+  const NS = "http://www.w3.org/2000/svg";
+  const el = (tag, attrs, parent) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (parent) parent.appendChild(e); return e; };
+  const css = name => getComputedStyle(document.getElementById("viz")).getPropertyValue(name).trim();
+  const fmtT = v => v == null ? "—" : (Math.round(v) > 0 ? "+" : Math.round(v) < 0 ? "−" : "") + Math.abs(Math.round(v)) + "°";
+  const fmtN = v => v == null ? "—" : (Math.round(v * 10) / 10).toString().replace(".", ",");
+  const hour = t => new Date(t).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+  const day = t => new Date(t).toLocaleDateString("ru-RU", { weekday: "short", day: "numeric", month: "short" });
+  const M = { l: 34, r: 12 };
+  let W = 0, x = null;
+
+  function niceTicks(lo, hi, count) {
+    const raw = (hi - lo) / count, mag = Math.pow(10, Math.floor(Math.log10(raw || 1)));
+    const step = [1, 2, 5, 10].map(m => m * mag).find(s => s >= raw) || mag * 10;
+    const from = Math.floor(lo / step) * step, to = Math.ceil(hi / step) * step, out = [];
+    for (let v = from; v <= to + 1e-9; v += step) out.push(+v.toFixed(6));
+    return out;
+  }
+
+  /** One panel: horizontal grid, y ticks, midnight lines, the «now» line; returns the y scale. */
+  function frame(svg, H, lo, hi, unit, xAxis) {
+    svg.replaceChildren();
+    const total = H + (xAxis ? 34 : 6);
+    svg.setAttribute("viewBox", `0 0 ${W} ${total}`);
+    const ticks = niceTicks(lo, hi, H > 120 ? 4 : 3);
+    const y0 = ticks[0], y1 = ticks[ticks.length - 1];
+    const y = v => 4 + (H - 8) * (1 - (v - y0) / ((y1 - y0) || 1));
+    for (const t of ticks) {
+      el("line", { x1: M.l, x2: W - M.r, y1: y(t), y2: y(t), stroke: css("--grid"), "stroke-width": 1 }, svg);
+      el("text", { x: M.l - 6, y: y(t) + 4, "text-anchor": "end" }, svg).textContent = t + unit;
+    }
+    // Midnights: a hairline, and the day's name under the axis.
+    for (const p of P) {
+      const d = new Date(p.t);
+      if (d.getHours() === 0 && p !== P[0]) {
+        el("line", { x1: x(p.t), x2: x(p.t), y1: 2, y2: H, stroke: css("--text-muted"), "stroke-width": 1, opacity: .45 }, svg);
+      }
+    }
+    if (xAxis) {
+      for (const p of P) {
+        const h = new Date(p.t).getHours();
+        if (h % 3 === 0) el("text", { x: x(p.t), y: H + 14, "text-anchor": "middle" }, svg).textContent = String(h).padStart(2, "0");
+        if (h === 0 || p === P[0]) el("text", { x: Math.max(x(p.t), M.l), y: H + 29, "text-anchor": p === P[0] ? "start" : "middle", class: "label" }, svg).textContent = p === P[0] ? "сейчас" : day(p.t);
+      }
+    }
+    return y;
+  }
+
+  function line(svg, y, key, color) {
+    const pts = P.filter(p => p[key] != null);
+    if (!pts.length) return;
+    el("path", { d: pts.map((p, i) => (i ? "L" : "M") + x(p.t).toFixed(1) + " " + y(p[key]).toFixed(1)).join(" "),
+      fill: "none", stroke: color, "stroke-width": 2, "stroke-linejoin": "round", "stroke-linecap": "round" }, svg);
+  }
+
+  function label(svg, px, py, text, above) {
+    el("text", { x: px, y: above ? py - 8 : py + 16, "text-anchor": "middle", class: "label" }, svg).textContent = text;
+  }
+
+  const cursors = [];
+  function draw() {
+    W = document.getElementById("viz").clientWidth - 24;
+    const t0 = P[0].t, t1 = P[P.length - 1].t;
+    x = t => M.l + (W - M.l - M.r) * (t - t0) / ((t1 - t0) || 1);
+    cursors.length = 0;
+
+    // Temperature and how it feels: one axis, the same unit.
+    const tv = P.flatMap(p => [p.temp, p.feels]).filter(v => v != null);
+    const sT = document.getElementById("p-temp");
+    const yT = frame(sT, 170, Math.min(...tv) - 1, Math.max(...tv) + 1, "°", false);
+    if (hasFeels) line(sT, yT, "feels", css("--series-feels"));
+    line(sT, yT, "temp", css("--series-temp"));
+    // Selective labels: the warmest and the coldest hour of the temperature line only.
+    const hi = P.reduce((a, b) => b.temp > a.temp ? b : a), lo = P.reduce((a, b) => b.temp < a.temp ? b : a);
+    label(sT, x(hi.t), yT(hi.temp), fmtT(hi.temp), true);
+    if (lo !== hi) label(sT, x(lo.t), yT(lo.temp), fmtT(lo.temp), false);
+    cursors.push({ svg: sT, H: 170, dots: [["temp", yT, "--series-temp"], ...(hasFeels ? [["feels", yT, "--series-feels"]] : [])] });
+
+    // Wind: the speed line, the gusts as a light band above it.
+    const wv = P.flatMap(p => [p.wind, p.gust]).filter(v => v != null);
+    const sW = document.getElementById("p-wind");
+    const yW = frame(sW, 100, 0, Math.max(1, ...wv), "", false);
+    if (hasGust) {
+      const g = P.filter(p => p.gust != null && p.wind != null);
+      const top = g.map(p => x(p.t).toFixed(1) + " " + yW(p.gust).toFixed(1));
+      const bottom = g.slice().reverse().map(p => x(p.t).toFixed(1) + " " + yW(p.wind).toFixed(1));
+      el("path", { d: "M" + top.join(" L") + " L" + bottom.join(" L") + " Z", fill: css("--series-wind"), opacity: .14 }, sW);
+    }
+    line(sW, yW, "wind", css("--series-wind"));
+    cursors.push({ svg: sW, H: 100, dots: [["wind", yW, "--series-wind"]] });
+
+    // Precipitation: a column per hour, thin, rounded at the top, from one baseline.
+    const sP = document.getElementById("p-precip");
+    const pv = P.map(precip).filter(v => v != null);
+    const yP = frame(sP, 80, 0, byProb ? 100 : Math.max(1, ...pv), byProb ? "%" : "", true);
+    const slot = (W - M.l - M.r) / Math.max(1, P.length - 1);
+    const bw = Math.max(2, Math.min(24, slot - 2));
+    for (const p of P) {
+      const v = precip(p);
+      if (!v) continue;
+      const top = yP(v), base = yP(0), h = Math.max(1, base - top), r = Math.min(4, bw / 2, h);
+      const x0 = x(p.t) - bw / 2;
+      el("path", { d: `M${x0} ${base} V${top + r} Q${x0} ${top} ${x0 + r} ${top} H${x0 + bw - r} Q${x0 + bw} ${top} ${x0 + bw} ${top + r} V${base} Z`, fill: css("--series-precip") }, sP);
+    }
+    cursors.push({ svg: sP, H: 80, dots: [] });
+
+    // The crosshair layer: one vertical hairline and dots per panel, one tooltip for every series.
+    for (const c of cursors) {
+      c.line = el("line", { y1: 0, y2: c.H, stroke: css("--text-secondary"), "stroke-width": 1, visibility: "hidden" }, c.svg);
+      c.marks = c.dots.map(([, , color]) => el("circle", { r: 4, fill: css(color), stroke: css("--surface-1"), "stroke-width": 2, visibility: "hidden" }, c.svg));
+      const hit = el("rect", { x: M.l, y: 0, width: W - M.l - M.r, height: c.H, fill: "transparent", tabindex: 0, class: "viz-hit",
+        "aria-label": "Прогноз по часам: стрелки влево и вправо — по часам" }, c.svg);
+      hit.addEventListener("pointermove", e => { const r = c.svg.getBoundingClientRect(); show(nearest((e.clientX - r.left) * W / r.width)); });
+      hit.addEventListener("pointerleave", hide);
+      hit.addEventListener("focus", () => show(current < 0 ? 0 : current));
+      hit.addEventListener("blur", hide);
+      hit.addEventListener("keydown", e => {
+        if (e.key === "ArrowRight") { show(Math.min(P.length - 1, current + 1)); e.preventDefault(); }
+        if (e.key === "ArrowLeft") { show(Math.max(0, current - 1)); e.preventDefault(); }
+      });
+    }
+  }
+
+  let current = -1;
+  const nearest = px => P.reduce((best, p, i) => Math.abs(x(p.t) - px) < Math.abs(x(P[best].t) - px) ? i : best, 0);
+  const tip = document.getElementById("tip");
+
+  function row(color, value, name) {
+    const r = document.createElement("div"); r.className = "row";
+    const k = document.createElement("i"); k.style.background = color; if (!color) k.style.visibility = "hidden";
+    const v = document.createElement("strong"); v.textContent = value;
+    const n = document.createElement("span"); n.textContent = name;
+    r.append(k, v, n); return r;
+  }
+
+  function show(i) {
+    current = i;
+    const p = P[i], px = x(p.t);
+    for (const c of cursors) {
+      c.line.setAttribute("x1", px); c.line.setAttribute("x2", px); c.line.setAttribute("visibility", "visible");
+      c.dots.forEach(([key, y], j) => {
+        const v = p[key];
+        if (v == null) { c.marks[j].setAttribute("visibility", "hidden"); return; }
+        c.marks[j].setAttribute("cx", px); c.marks[j].setAttribute("cy", y(v)); c.marks[j].setAttribute("visibility", "visible");
+      });
+    }
+    tip.replaceChildren();
+    const when = document.createElement("div"); when.className = "when"; when.textContent = day(p.t) + ", " + hour(p.t);
+    tip.append(when, row(css("--series-temp"), fmtT(p.temp), "температура"));
+    if (hasFeels) tip.append(row(css("--series-feels"), fmtT(p.feels), "ощущается как"));
+    if (p.text) tip.append(row("", p.text, ""));
+    tip.append(row(css("--series-wind"), fmtN(p.wind) + " м/с", hasGust && p.gust != null ? "ветер, порывы до " + fmtN(p.gust) : "ветер"));
+    const pr = precip(p);
+    tip.append(row(css("--series-precip"), pr == null ? "—" : fmtN(pr) + precipUnit, byProb ? "вероятность осадков" : "осадки за час"));
+    tip.style.display = "block";
+    const root = document.getElementById("viz"), rw = root.clientWidth, scale = rw / (W + 24);
+    const left = 12 + px * scale;
+    tip.style.left = (left + tip.offsetWidth + 16 > rw ? left - tip.offsetWidth - 12 : left + 12) + "px";
+    tip.style.top = "40px";
+  }
+
+  function hide() {
+    for (const c of cursors) { c.line.setAttribute("visibility", "hidden"); c.marks.forEach(m => m.setAttribute("visibility", "hidden")); }
+    tip.style.display = "none";
+  }
+
+  // The table: every value without hovering.
+  const body = document.querySelector("#table tbody");
+  for (const p of P) {
+    const tr = document.createElement("tr");
+    for (const [text, cls] of [[day(p.t) + ", " + hour(p.t)], [fmtT(p.temp)], [fmtT(p.feels)], [fmtN(p.wind)], [fmtN(p.gust)],
+      [precip(p) == null ? "—" : fmtN(precip(p)) + precipUnit], [p.text, "sky"]]) {
+      const td = document.createElement("td"); td.textContent = text; if (cls) td.className = cls; tr.append(td);
+    }
+    body.append(tr);
+  }
+
+  draw();
+  let pending = null;
+  window.addEventListener("resize", () => { clearTimeout(pending); pending = setTimeout(() => { hide(); draw(); }, 120); });
+})();
+</script>
+{% endif %}
+{% endblock %}

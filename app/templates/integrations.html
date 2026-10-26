@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+{% block title %}Интеграции · {{ app_name }}{% endblock %}
+
+{% block content %}
+<h1>Интеграции</h1>
+<p class="hint">Внешние сервисы, которые хаб использует для всего дома. Ключи хранятся только в базе хаба: здесь видны их последние символы. Телефоны без хаба работают и без этих сервисов.</p>
+
+{% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+
+<ul class="integrations">
+  {% for i in integrations %}
+  <li class="integration {% if i.enabled %}on{% endif %}">
+    <div class="setting-head">
+      <span class="setting-title">{{ i.title }}</span>
+      <span class="badge {% if i.enabled %}on{% endif %}">
+        {% if i.builtin %}встроено{% elif i.enabled %}включено{% else %}выключено{% endif %}
+      </span>
+    </div>
+    <p class="setting-desc">{{ i.description }}</p>
+
+    {% if not i.builtin %}
+    <form class="setting-form" method="post" action="/integrations/{{ i.id }}/key">
+      <input type="password" name="key" required autocomplete="off" class="wide"
+             placeholder="{% if i.key_hint %}Новый ключ (сохранён {{ i.key_hint }}){% else %}API-ключ{% endif %}"
+             aria-label="API-ключ {{ i.title }}">
+      <button type="submit">Сохранить</button>
+    </form>
+
+    {% if i.key_hint %}
+    <div class="integration-actions">
+      <form method="post" action="/integrations/{{ i.id }}/check">
+        <button type="submit">Проверить соединение</button>
+      </form>
+      <form method="post" action="/integrations/{{ i.id }}/enabled">
+        <input type="hidden" name="enabled" value="{{ 0 if i.enabled else 1 }}">
+        <button type="submit" class="secondary">{% if i.enabled %}Выключить{% else %}Включить{% endif %}</button>
+      </form>
+      <form method="post" action="/integrations/{{ i.id }}/key/clear">
+        <button type="submit" class="link">Удалить ключ</button>
+      </form>
+    </div>
+    {% endif %}
+
+    {% if i.checked_at %}
+    <p class="check {% if i.check_ok %}okay{% else %}failed{% endif %}">
+      {{ i.check_message }} · {{ (now - i.checked_at) | int | ago }}
+    </p>
+    {% endif %}
+
+    {% if 'refresh_min' in i.config %}
+    <form class="setting-form" method="post" action="/integrations/{{ i.id }}/refresh">
+      <label for="r-{{ i.id }}" class="setting-desc">Спрашивать раз в</label>
+      <input id="r-{{ i.id }}" type="number" style="width: 90px" name="minutes" min="30" max="1440" value="{{ i.config.refresh_min }}" required>
+      <span class="unit">мин</span>
+      <button type="submit" class="secondary">Сохранить</button>
+    </form>
+    {% endif %}
+    {% endif %}
+  </li>
+  {% endfor %}
+</ul>
+{% endblock %}

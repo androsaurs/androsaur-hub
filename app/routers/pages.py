@@ -1,4 +1,5 @@
 import time
+from collections.abc import Callable
 from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, Form, Request
@@ -7,11 +8,13 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from app.clients.weather import WeatherError
 from app.dependencies import (
     get_device_service,
+    get_integrations_service,
     get_people_service,
     get_settings_service,
     get_weather_service,
 )
 from app.services.devices import DeviceService
+from app.services.integrations import IntegrationError, IntegrationsService
 from app.services.people import ERRORS, PeopleService, PersonError
 from app.services.settings import SettingError, SettingsService
 from app.services.weather import WeatherService, describe
@@ -141,6 +144,111 @@ def merge_person(
     except PersonError as e:
         return _back(str(e), "/people")
     return _back(path="/people")
+
+
+@router.get("/weather", response_class=HTMLResponse)
+def weather_page(
+    request: Request,
+    weather: WeatherService = Depends(get_weather_service),
+) -> HTMLResponse:
+    """Прогноз по часам на графике: от текущего часа до конца того, что отдал источник."""
+    place, reading = weather.current()
+    now_ms = int(time.time() * 1000)
+    points = [
+        {
+            "t": h.time_ms,
+            "temp": h.temperature,
+            "feels": h.feels_like,
+            "wind": h.wind,
+            "gust": h.gust,
+            "prob": h.precip_prob,
+            "mm": h.precip_mm,
+            "text": describe(h.symbol) if h.symbol else "",
+            "symbol": h.symbol,
+        }
+        for h in (reading.hours or [] if reading else [])
+        if h.time_ms >= now_ms - 3600 * 1000
+    ]
+    return templates.TemplateResponse(
+        request,
+        "weather.html",
+        {
+            "page": "weather",
+            "place": place,
+            "reading": reading,
+            "now_ms": now_ms,
+            "chart": {"points": points, "now": now_ms},
+        },
+    )
+
+
+@router.get("/integrations", response_class=HTMLResponse)
+def integrations_page(
+    request: Request,
+    error: str | None = None,
+    integrations: IntegrationsService = Depends(get_integrations_service),
+) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request,
+        "integrations.html",
+        {
+            "page": "integrations",
+            "integrations": integrations.all(),
+            "now": time.time(),
+            "error": error,
+        },
+    )
+
+
+def _integration(action: Callable[[], object]) -> RedirectResponse:
+    try:
+        action()
+    except IntegrationError as e:
+        return _back(str(e), "/integrations")
+    return _back(path="/integrations")
+
+
+@router.post("/integrations/{integration_id}/key")
+def save_integration_key(
+    integration_id: str,
+    key: str = Form(...),
+    integrations: IntegrationsService = Depends(get_integrations_service),
+) -> RedirectResponse:
+    return _integration(lambda: integrations.save_key(integration_id, key))
+
+
+@router.post("/integrations/{integration_id}/key/clear")
+def clear_integration_key(
+    integration_id: str,
+    integrations: IntegrationsService = Depends(get_integrations_service),
+) -> RedirectResponse:
+    return _integration(lambda: integrations.clear_key(integration_id))
+
+
+@router.post("/integrations/{integration_id}/enabled")
+def set_integration_enabled(
+    integration_id: str,
+    enabled: int = Form(...),
+    integrations: IntegrationsService = Depends(get_integrations_service),
+) -> RedirectResponse:
+    return _integration(lambda: integrations.set_enabled(integration_id, bool(enabled)))
+
+
+@router.post("/integrations/{integration_id}/refresh")
+def set_integration_refresh(
+    integration_id: str,
+    minutes: int = Form(...),
+    integrations: IntegrationsService = Depends(get_integrations_service),
+) -> RedirectResponse:
+    return _integration(lambda: integrations.set_refresh(integration_id, minutes))
+
+
+@router.post("/integrations/{integration_id}/check")
+def check_integration(
+    integration_id: str,
+    integrations: IntegrationsService = Depends(get_integrations_service),
+) -> RedirectResponse:
+    return _integration(lambda: integrations.check(integration_id))
 
 
 def _back(error: str | None = None, path: str = "/") -> RedirectResponse:

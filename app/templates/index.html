@@ -49,7 +49,7 @@
   </div>
   {% if weather %}
   <p class="weather-now">{{ weather.temperature | temp }} · {{ weather_text }}{% if weather.wind is not none %} · ветер {{ weather.wind | round | int }} м/с{% endif %}{% if weather.min is not none %} · за 12 ч от {{ weather.min | temp }} до {{ weather.max | temp }}{% endif %}</p>
-  <p class="setting-desc">Обновлено {{ ((now_ms - weather.fetched_at_ms) // 1000) | ago }}; телефоны берут погоду отсюда, без хаба — сами.</p>
+  <p class="setting-desc">{% if weather.source %}{{ weather.source }} · {% endif %}обновлено {{ ((now_ms - weather.fetched_at_ms) // 1000) | ago }}; телефоны берут погоду отсюда, без хаба — сами. Источник — в разделе <a href="/integrations">«Интеграции»</a>. <a href="/weather">Прогноз по часам →</a></p>
   {% else %}
   <p class="setting-desc">Прогноз ещё не получен — хаб попробует снова в течение минуты.</p>
   {% endif %}

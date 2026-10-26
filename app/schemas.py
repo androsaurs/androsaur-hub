@@ -158,6 +158,19 @@ class WeatherPlace(BaseModel):
     longitude: float
 
 
+class HourPoint(BaseModel):
+    """Один час прогноза: для ленты на главном экране телефона и страницы погоды в админке."""
+
+    time_ms: int = Field(serialization_alias="timeMs")
+    temperature: float
+    feels_like: float | None = Field(default=None, serialization_alias="feelsLike")
+    symbol: str = ""
+    wind: float | None = None
+    gust: float | None = None
+    precip_prob: float | None = Field(default=None, serialization_alias="precipProb")
+    precip_mm: float | None = Field(default=None, serialization_alias="precipMm")
+
+
 class WeatherReading(BaseModel):
     """Погода сейчас и на ближайшие 12 часов. ``symbol`` — код MET Norway (``cloudy``,
     ``lightrain_day``…), описание словами телефон делает сам. Время — миллисекунды Unix."""
@@ -177,6 +190,11 @@ class WeatherReading(BaseModel):
     tomorrow_min: float | None = Field(default=None, serialization_alias="tomorrowMin")
     tomorrow_max: float | None = Field(default=None, serialization_alias="tomorrowMax")
     tomorrow_symbol: str | None = Field(default=None, serialization_alias="tomorrowSymbol")
+    # Откуда погода («Яндекс Погода», «MET Norway») и до какого момента хаб считает её свежей.
+    source: str = ""
+    valid_until_ms: int | None = Field(default=None, serialization_alias="validUntilMs")
+    # Почасовой прогноз: в базе хранится отдельно, телефону уходят ближайшие 24 часа.
+    hours: list[HourPoint] | None = None
 
 
 class DeviceConfig(BaseModel):
@@ -219,6 +237,21 @@ class CommandView(BaseModel):
     done: bool
     ok: bool | None
     error: str | None
+
+
+class IntegrationView(BaseModel):
+    """Карточка интеграции для админки (без ключа: только его последние символы)."""
+
+    id: str
+    title: str
+    description: str
+    builtin: bool
+    enabled: bool
+    key_hint: str | None
+    config: dict[str, int]
+    checked_at: float | None
+    check_ok: bool | None
+    check_message: str | None
 
 
 class Device(BaseModel):

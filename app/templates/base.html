@@ -11,7 +11,9 @@
     <a class="brand" href="/">{{ app_name }}</a>
     <nav class="nav">
       <a href="/" {% if page == 'settings' %}aria-current="page"{% endif %}>Настройки</a>
+      <a href="/weather" {% if page == 'weather' %}aria-current="page"{% endif %}>Погода</a>
       <a href="/people" {% if page == 'people' %}aria-current="page"{% endif %}>Люди</a>
+      <a href="/integrations" {% if page == 'integrations' %}aria-current="page"{% endif %}>Интеграции</a>
     </nav>
   </header>
   <main class="container">

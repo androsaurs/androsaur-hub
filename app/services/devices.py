@@ -5,7 +5,13 @@ from app.config import get_settings
 from app.repositories.devices import DeviceRepository
 from app.repositories.people import PeopleRepository
 from app.repositories.settings import SettingsRepository
-from app.schemas import DeviceConfig, DeviceRegistration, DeviceSync, DeviceView
+from app.schemas import (
+    DeviceConfig,
+    DeviceRegistration,
+    DeviceSync,
+    DeviceView,
+    WeatherReading,
+)
 from app.services.people import PeopleService
 from app.services.weather import WeatherService
 
@@ -81,5 +87,15 @@ class DeviceService:
             people_rev=self._house.revision(),
             upload=upload or [],
             weather_place=place,
-            weather=reading,
+            weather=_next_day(reading, self._clock()),
         )
+
+
+def _next_day(reading: WeatherReading | None, now: float) -> WeatherReading | None:
+    """Погода для телефона: часы только от текущего до суток вперёд — ему хватает для ленты."""
+    if reading is None or reading.hours is None:
+        return reading
+    start, end = (now - now % 3600) * 1000, (now + 24 * 3600) * 1000
+    return reading.model_copy(
+        update={"hours": [h for h in reading.hours if start <= h.time_ms <= end]}
+    )

@@ -14,7 +14,7 @@ from typing import Any, Protocol
 
 import httpx
 
-from app.schemas import WeatherPlace, WeatherReading
+from app.schemas import HourPoint, WeatherPlace, WeatherReading
 
 USER_AGENT = "androsaur-hub/0.1 (+https://github.com/androsaurs/androsaur-hub)"
 GEOCODE_URL = "https://nominatim.openstreetmap.org/search"
@@ -99,6 +99,28 @@ def reading_from_met(
                 later_ms = int(stamp * 1000)
                 break
     tomorrow_min, tomorrow_max, tomorrow_symbol = tomorrow_from_met(series, now, zone)
+    points = []
+    for point in series:
+        hourly = point["data"].get("next_1_hours")
+        try:
+            at = datetime.fromisoformat(point["time"].replace("Z", "+00:00")).timestamp()
+        except ValueError:
+            continue
+        if hourly is None or at > now + 48 * 3600:
+            continue
+        d = point["data"]["instant"]["details"]
+        if d.get("air_temperature") is None:
+            continue
+        points.append(
+            HourPoint(
+                time_ms=int(at * 1000),
+                temperature=d["air_temperature"],
+                symbol=hourly.get("summary", {}).get("symbol_code", ""),
+                wind=d.get("wind_speed"),
+                gust=d.get("wind_speed_of_gust"),
+                precip_mm=(hourly.get("details") or {}).get("precipitation_amount"),
+            )
+        )
     return WeatherReading(
         place=place,
         temperature=details["air_temperature"],
@@ -113,12 +135,14 @@ def reading_from_met(
         tomorrow_min=tomorrow_min,
         tomorrow_max=tomorrow_max,
         tomorrow_symbol=tomorrow_symbol,
+        source="MET Norway",
+        hours=points,
     )
 
 
 def is_precipitation(symbol: str) -> bool:
     """Дождь, мокрый снег или снег (с грозой или без) в коде MET."""
-    return any(word in symbol for word in ("rain", "sleet", "snow"))
+    return any(word in symbol for word in ("rain", "sleet", "snow", "hail"))
 
 
 class HttpWeatherClient:

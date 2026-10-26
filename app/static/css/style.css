@@ -110,7 +110,7 @@ h2 { font-size: 1.1rem; margin: 32px 0 12px; }
 .setting-source, .setting-desc, .setting-foot, .device-meta, .device-state { color: var(--muted); font-size: .85rem; }
 .setting-desc { margin-top: 2px; }
 
-.setting-form { display: flex; align-items: center; gap: 8px; margin: 10px 0 6px; }
+.setting-form { display: flex; align-items: center; gap: 8px; margin: 10px 0 6px; flex-wrap: wrap; }
 .setting-form input {
   width: 120px;
   padding: 8px 10px;
@@ -143,3 +143,25 @@ button.link { background: none; border: none; color: var(--accent); cursor: poin
 .rev { margin-top: 16px; }
 
 .empty { color: var(--muted); }
+
+.integrations { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+.integration {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+.integration.on { border-color: #b7e4c7; }
+.badge { font-size: .8rem; color: var(--muted); border: 1px solid var(--border); border-radius: 999px; padding: 1px 8px; }
+.badge.on { color: #166534; border-color: #b7e4c7; background: #f0fdf4; }
+.integration-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 4px 0 6px; }
+.integration-actions button, .setting-form button.secondary {
+  padding: 8px 14px; border-radius: 8px; border: none; background: var(--accent); color: #fff; font-size: .95rem; cursor: pointer;
+}
+.integration-actions button.secondary, .setting-form button.secondary {
+  background: #fff; color: var(--fg); border: 1px solid var(--border);
+}
+.integration-actions button.link { background: none; border: none; color: var(--accent); padding: 0; font-size: .85rem; }
+.check { font-size: .9rem; margin: 6px 0; }
+.check.okay { color: #166534; }
+.check.failed { color: #9b1c1c; }
