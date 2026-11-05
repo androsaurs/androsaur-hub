@@ -40,6 +40,7 @@
   <li>
     <div class="person-name">{{ p.name }}</div>
     <div class="person-meta">Наборов: {{ p.samples }}{% if several %} · телефоны: {{ p.devices | join(", ") if p.devices else "пока ни одного" }}{% endif %}</div>
+    <a href="/characters?person={{ p.id | urlencode }}">Выбрать моего персонажа →</a>
     <form class="rename-form" method="post" action="/people/rename">
       <input type="hidden" name="person" value="{{ p.id }}">
       <input type="text" name="to" required maxlength="40" placeholder="Новое имя" aria-label="Новое имя для {{ p.name }}">

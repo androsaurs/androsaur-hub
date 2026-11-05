@@ -1,7 +1,14 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 
-from app.dependencies import get_device_service, get_notes_service, get_people_service
+from app.dependencies import (
+    get_character_service,
+    get_device_service,
+    get_notes_service,
+    get_people_service,
+)
 from app.schemas import (
+    AccessorySelection,
+    CharacterAppearance,
     DeviceConfig,
     DeviceRegistration,
     DeviceSync,
@@ -10,11 +17,37 @@ from app.schemas import (
     PeopleRequest,
     PeopleUpload,
 )
+from app.services.characters import CharacterError, CharacterService
 from app.services.devices import DeviceService, UnknownDevice
 from app.services.notes import NotesService
 from app.services.people import PeopleService, PersonError
 
 router = APIRouter(prefix="/api", tags=["api"])
+
+
+@router.get("/characters")
+def current_characters(
+    response: Response,
+    service: CharacterService = Depends(get_character_service),
+) -> CharacterAppearance:
+    """Актуальные личные выборы: короткий запрос при узнавании, без полной синхронизации."""
+    response.headers["Cache-Control"] = "no-store"
+    return service.appearance()
+
+
+@router.post("/characters/accessory")
+def set_character_accessory(
+    payload: AccessorySelection,
+    response: Response,
+    service: CharacterService = Depends(get_character_service),
+) -> CharacterAppearance:
+    try:
+        service.set_accessory(payload.person, payload.character, payload.accessory)
+    except CharacterError as e:
+        code = status.HTTP_404_NOT_FOUND if str(e) == "person_unknown" else status.HTTP_409_CONFLICT
+        raise HTTPException(code, str(e)) from None
+    response.headers["Cache-Control"] = "no-store"
+    return service.appearance()
 
 
 @router.get("/health")

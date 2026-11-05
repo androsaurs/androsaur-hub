@@ -15,11 +15,12 @@
       <a href="/weather" {% if page == 'weather' %}aria-current="page"{% endif %}>Погода</a>
       <a href="/notes" {% if page == 'notes' %}aria-current="page"{% endif %}>Записки</a>
       <a href="/people" {% if page == 'people' %}aria-current="page"{% endif %}>Люди</a>
+      <a href="/characters" {% if page == 'characters' %}aria-current="page"{% endif %}>Персонажи</a>
       <a href="/integrations" {% if page == 'integrations' %}aria-current="page"{% endif %}>Интеграции</a>
     </nav>
   </header>
   {% endif %}
-  <main class="container{% if embed %} embed{% endif %}">
+  <main class="container{% if embed %} embed{% endif %}{% if page == 'characters' %} catalog-container{% endif %}">
     {% block content %}{% endblock %}
   </main>
 </body>

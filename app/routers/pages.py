@@ -7,6 +7,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 
 from app.clients.weather import WeatherError
 from app.dependencies import (
+    get_character_service,
     get_device_service,
     get_integrations_service,
     get_notes_service,
@@ -14,6 +15,7 @@ from app.dependencies import (
     get_settings_service,
     get_weather_service,
 )
+from app.services.characters import CharacterError, CharacterService
 from app.services.devices import DeviceService
 from app.services.integrations import IntegrationError, IntegrationsService
 from app.services.notes import NotesService
@@ -23,6 +25,47 @@ from app.services.weather import WeatherService, describe
 from app.templating import templates
 
 router = APIRouter(tags=["pages"])
+
+
+@router.get("/characters", response_class=HTMLResponse)
+def characters_page(
+    request: Request,
+    person: str = "",
+    error: str | None = None,
+    saved: bool = False,
+    characters: CharacterService = Depends(get_character_service),
+    people: PeopleService = Depends(get_people_service),
+) -> HTMLResponse:
+    household = people.all()
+    selected = next((p for p in household if p.id == person), None)
+    return templates.TemplateResponse(
+        request,
+        "characters.html",
+        {
+            "page": "characters",
+            "catalog": characters.catalog(),
+            "people": household,
+            "person": selected,
+            "assignments": characters.assignments(),
+            "error": error,
+            "saved": saved and selected is not None,
+        },
+    )
+
+
+@router.post("/characters/select")
+def select_character(
+    person: str = Form(...),
+    character: str = Form(...),
+    characters: CharacterService = Depends(get_character_service),
+) -> RedirectResponse:
+    try:
+        characters.select(person, character)
+    except CharacterError as e:
+        return RedirectResponse(
+            f"/characters?person={quote(person)}&error={quote(str(e))}", status_code=303
+        )
+    return RedirectResponse(f"/characters?person={quote(person)}&saved=1", status_code=303)
 
 
 @router.get("/", response_class=HTMLResponse)

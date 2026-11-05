@@ -230,12 +230,25 @@ class RoleSet(BaseModel):
     words: list[str]
 
 
+class CharacterAppearance(BaseModel):
+    characters: dict[str, str] = Field(default_factory=dict)
+    accessories: dict[str, dict[str, str]] = Field(default_factory=dict)
+
+
+class AccessorySelection(BaseModel):
+    person: str = Field(pattern=_PERSON_ID)
+    character: str = Field(pattern=_NAME)
+    accessory: Literal["none", "glasses", "bow", "scarf", "crown", "seed"]
+
+
 class DeviceConfig(BaseModel):
     """Настройки, которые хаб задаёт устройству, и команды, которые оно ещё не выполнило.
 
     Чего нет в ``values``, то у устройства по умолчанию."""
 
     rev: int
+    characters: dict[str, str] = Field(default_factory=dict)
+    accessories: dict[str, dict[str, str]] = Field(default_factory=dict)
     values: dict[str, dict[str, SettingValue]]
     commands: list[Command] = Field(default_factory=list)
     people_rev: int = Field(default=0, serialization_alias="peopleRev")

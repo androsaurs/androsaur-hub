@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Мой персонаж · {{ app_name }}{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', path='css/characters.css') }}">
+<div class="catalog-intro">
+  <p class="catalog-eyebrow">Маленькие друзья · Androsaur</p>
+  <h1>Кто будет твоим другом?</h1>
+  <p>Познакомься, посмотри, как они оживают, и выбери своего.<br>Он встретит тебя на любом телефоне, который тебя узнает.</p>
+</div>
+<form method="get" action="/characters" class="catalog-person">
+  <label for="catalog-person">Для кого выбираем?</label>
+  <select id="catalog-person" name="person" required>
+    <option value="">Выбери своё имя</option>
+    {% for p in people %}<option value="{{ p.id }}" {% if person and person.id == p.id %}selected{% endif %}>{{ p.name }}</option>{% endfor %}
+  </select>
+  <button type="submit" class="secondary">Показать мой выбор</button>
+</form>
+{% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+{% if saved %}<p class="catalog-saved" role="status">Готово, {{ person.name }}! Твой друг встретит тебя, когда телефон тебя узнает. Если ты уже перед камерой, выбор обновится через пару секунд.</p>{% endif %}
+{% if not people %}<p class="empty">Сначала познакомься с камерой телефона — твоё имя появится в разделе <a href="/people">«Люди»</a>.</p>{% endif %}
+<div class="character-grid">
+  {% for c in catalog %}
+  {% set chosen = person and assignments.get(person.id, 'dinosaur') == c.id %}
+  <article class="character-card{% if chosen %} is-chosen{% endif %}" style="--character-color:{{ c.color }}">
+    <div class="character-stage">
+      <span class="character-label">{% if chosen %}Твой друг{% elif c.id == 'dinosaur' %}Живёт здесь по умолчанию{% else %}Давай знакомиться{% endif %}</span>
+      <object data="{{ url_for('static', path='characters/' + c.id + '.svg') }}" type="image/svg+xml" aria-label="Анимированный {{ c.title }}" class="character-preview" tabindex="-1"><img src="{{ url_for('static', path='characters/' + c.id + '.svg') }}" alt="{{ c.title }}"></object>
+      <button type="button" class="character-hello" data-preview="{{ c.id }}">Поздоровайся!</button>
+    </div>
+    <div class="character-copy">
+      <h2>{{ c.title }}</h2><p>{{ c.description }}</p>
+      <form method="post" action="/characters/select">
+        <input type="hidden" name="person" value="{{ person.id if person else '' }}">
+        <input type="hidden" name="character" value="{{ c.id }}">
+        <button type="submit" {% if not person %}disabled{% endif %}>{% if chosen %}Мой персонаж ✓{% else %}Выбрать{% if person %} для {{ person.name }}{% endif %}{% endif %}</button>
+      </form>
+    </div>
+  </article>
+  {% endfor %}
+</div>
+<p class="catalog-footer">Когда рядом никого знакомого нет, остаётся зелёный динозаврик. Персонаж путешествует с человеком, а не с телефоном. На телефоне включи режим «Сложный».</p>
+<script src="{{ url_for('static', path='js/characters.js') }}" defer></script>
+{% endblock %}

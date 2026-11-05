@@ -7,7 +7,25 @@ from app.config import get_settings
 
 # Схема БД. Для одного небольшого портала простых миграций «CREATE TABLE IF NOT
 # EXISTS» достаточно; при росте проекта замените на полноценный мигратор.
-_SCHEMA = """
+_ACCESSORY_TABLE = """
+CREATE TABLE IF NOT EXISTS character_accessories (
+    person_id TEXT NOT NULL REFERENCES house_people(id) ON DELETE CASCADE,
+    character_id TEXT NOT NULL,
+    accessory TEXT NOT NULL
+        CHECK(accessory IN ('none', 'glasses', 'bow', 'scarf', 'crown', 'seed')),
+    PRIMARY KEY (person_id, character_id)
+);
+"""
+
+_SCHEMA = (
+    _ACCESSORY_TABLE
+    + """
+-- Personal choices follow permanent people IDs, never device IDs.
+CREATE TABLE IF NOT EXISTS person_characters (
+    person_id TEXT PRIMARY KEY REFERENCES house_people(id) ON DELETE CASCADE,
+    character_id TEXT NOT NULL
+);
+
 -- Телефоны: подключается главное приложение androsaur, по одному на устройство.
 CREATE TABLE IF NOT EXISTS devices (
     id            TEXT    PRIMARY KEY,
@@ -155,6 +173,7 @@ CREATE TABLE IF NOT EXISTS commands (
     error      TEXT
 );
 """
+)
 
 
 _DEVICE_COLUMNS = {
@@ -202,6 +221,26 @@ def get_connection() -> Iterator[sqlite3.Connection]:
 def init_db() -> None:
     """Создать таблицы, если их ещё нет. Вызывается на старте приложения."""
     with get_connection() as conn:
+        old_accessories = conn.execute(
+            "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'character_accessories'"
+        ).fetchone()
+        if old_accessories and "'bow'" not in old_accessories["sql"]:
+            # SQLite cannot alter CHECK constraints. Preserve every saved preference atomically.
+            conn.execute("BEGIN IMMEDIATE")
+            try:
+                conn.execute(
+                    "ALTER TABLE character_accessories RENAME TO character_accessories_legacy"
+                )
+                conn.execute(_ACCESSORY_TABLE)
+                conn.execute(
+                    "INSERT INTO character_accessories(person_id, character_id, accessory) "
+                    "SELECT person_id, character_id, accessory FROM character_accessories_legacy"
+                )
+                conn.execute("DROP TABLE character_accessories_legacy")
+                conn.commit()
+            except Exception:
+                conn.rollback()
+                raise
         # Список людей — копия того, что знает телефон, и приходит заново при каждом опросе. Таблицу
         # без ID людей (до их появления) можно просто пересоздать.
         columns = [row["name"] for row in conn.execute("PRAGMA table_info(device_people)")]

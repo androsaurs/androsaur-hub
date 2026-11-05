@@ -13,6 +13,7 @@ from app.schemas import (
     SettingValue,
     WeatherReading,
 )
+from app.services.characters import CharacterService
 from app.services.notes import NotesService
 from app.services.people import PeopleService
 from app.services.weather import WeatherService
@@ -79,11 +80,14 @@ class DeviceService:
         return views
 
     def _config(self, device_id: str, upload: list[str] | None = None) -> DeviceConfig:
+        appearance = CharacterService().appearance()
         place, reading = self._weather.current()
         values: dict[str, dict[str, SettingValue]] = {}
         for (module, key), value in self._settings.values().items():
             values.setdefault(module, {})[key] = value
         return DeviceConfig(
+            characters=appearance.characters,
+            accessories=appearance.accessories,
             rev=self._settings.revision(),
             values=values,
             commands=self._people.pending(device_id),
