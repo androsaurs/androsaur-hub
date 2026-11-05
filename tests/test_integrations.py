@@ -1,4 +1,5 @@
 from datetime import UTC
+from types import SimpleNamespace
 
 import pytest
 
@@ -80,9 +81,10 @@ class FakeMet:
 
 
 @pytest.fixture
-def hub(client):
+def hub(client, monkeypatch):
     FakeYandex.calls, FakeYandex.fail, FakeYandex.keys = 0, None, []
     clock = lambda: NOW  # noqa: E731
+    monkeypatch.setattr("app.routers.pages.time", SimpleNamespace(time=clock))
 
     def integrations() -> IntegrationsService:
         return IntegrationsService(yandex=FakeYandex, clock=clock)
@@ -92,7 +94,9 @@ def hub(client):
 
     client.app.dependency_overrides[get_integrations_service] = integrations
     client.app.dependency_overrides[get_weather_service] = weather
-    client.app.dependency_overrides[get_device_service] = lambda: DeviceService(weather=weather())
+    client.app.dependency_overrides[get_device_service] = lambda: DeviceService(
+        weather=weather(), clock=clock
+    )
     return client
 
 

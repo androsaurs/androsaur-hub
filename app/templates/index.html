@@ -18,15 +18,22 @@
     </div>
     {% if s.field.description %}<p class="setting-desc">{{ s.field.description }}</p>{% endif %}
     <form class="setting-form" method="post" action="/settings/{{ s.field.module }}/{{ s.field.key }}">
+      {% if s.field.type == 'string' %}
+      <input id="v-{{ s.field.module }}-{{ s.field.key }}" type="text" name="value" required class="wide"
+             value="{{ s.effective }}" autocomplete="off" spellcheck="false"
+             {% if s.field.min is not none %}minlength="{{ s.field.min }}"{% endif %}
+             {% if s.field.max is not none %}maxlength="{{ s.field.max }}"{% endif %}>
+      {% else %}
       <input id="v-{{ s.field.module }}-{{ s.field.key }}" type="number" name="value" required
              value="{{ s.effective }}"
              {% if s.field.min is not none %}min="{{ s.field.min }}"{% endif %}
              {% if s.field.max is not none %}max="{{ s.field.max }}"{% endif %}>
+      {% endif %}
       {% if s.field.unit %}<span class="unit">{{ s.field.unit }}</span>{% endif %}
       <button type="submit">Сохранить</button>
     </form>
     <div class="setting-foot">
-      <span>По умолчанию {{ s.field.default }}{% if s.field.unit %} {{ s.field.unit }}{% endif %}{% if s.field.min is not none %} · от {{ s.field.min }} до {{ s.field.max }}{% endif %} · {{ s.field.module }}</span>
+      <span>По умолчанию {{ s.field.default }}{% if s.field.unit %} {{ s.field.unit }}{% endif %}{% if s.field.min is not none %} · от {{ s.field.min }} до {{ s.field.max }}{% if s.field.type == 'string' %} символов{% endif %}{% endif %} · {{ s.field.module }}</span>
       {% if s.house_value is not none %}
       <form method="post" action="/settings/{{ s.field.module }}/{{ s.field.key }}/reset">
         <button type="submit" class="link">Сбросить на умолчание</button>

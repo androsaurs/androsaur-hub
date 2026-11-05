@@ -10,6 +10,7 @@ from app.schemas import (
     DeviceRegistration,
     DeviceSync,
     DeviceView,
+    SettingValue,
     WeatherReading,
 )
 from app.services.notes import NotesService
@@ -79,7 +80,7 @@ class DeviceService:
 
     def _config(self, device_id: str, upload: list[str] | None = None) -> DeviceConfig:
         place, reading = self._weather.current()
-        values: dict[str, dict[str, int]] = {}
+        values: dict[str, dict[str, SettingValue]] = {}
         for (module, key), value in self._settings.values().items():
             values.setdefault(module, {})[key] = value
         return DeviceConfig(

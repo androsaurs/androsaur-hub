@@ -10,7 +10,9 @@ from fastapi.staticfiles import StaticFiles
 from app.config import get_settings
 from app.db.database import init_db
 from app.dependencies import get_notes_service, get_weather_service
+from app.repositories.settings import SettingsRepository
 from app.routers import api, pages
+from app.schemas import WAKE_PHRASE_FIELD
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 
@@ -20,6 +22,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # Инициализация ресурсов на старте. Сюда же добавляйте пулы соединений,
     # клиентов внешних API, планировщики и т.п.
     init_db()
+    SettingsRepository().upsert_fields([WAKE_PHRASE_FIELD])
     tasks = (
         [asyncio.create_task(_weather_loop(app)), asyncio.create_task(_notes_loop(app))]
         if get_settings().weather_enabled

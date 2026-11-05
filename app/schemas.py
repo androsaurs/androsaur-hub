@@ -1,10 +1,10 @@
 import math
 from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, StrictInt, field_validator, model_validator
 
-# Пока устройства описывают только целые настройки; другие типы добавляются, когда появятся.
-FieldType = Literal["int"]
+FieldType = Literal["int", "string"]
+SettingValue = StrictInt | str
 
 _NAME = r"^[a-z][a-z0-9_]{0,63}$"
 
@@ -20,7 +20,7 @@ class SettingField(BaseModel):
     unit: str = Field(default="", max_length=20)
     min: int | None = None
     max: int | None = None
-    default: int
+    default: SettingValue
 
     @model_validator(mode="after")
     def _default_in_range(self) -> "SettingField":
@@ -31,8 +31,33 @@ class SettingField(BaseModel):
         return self
 
 
-def in_range(field: SettingField, value: int) -> bool:
-    return (field.min is None or value >= field.min) and (field.max is None or value <= field.max)
+def in_range(field: SettingField, value: SettingValue) -> bool:
+    if field.type == "int":
+        if not isinstance(value, int) or isinstance(value, bool):
+            return False
+        size = value
+    else:
+        if not isinstance(value, str):
+            return False
+        size = len(value)
+    return (field.min is None or size >= field.min) and (field.max is None or size <= field.max)
+
+
+WAKE_PHRASE_FIELD = SettingField(
+    module="audio",
+    key="phrase",
+    type="string",
+    title="Фраза пробуждения",
+    description=(
+        "Для Vosk: 1–4 русских слова, например «зюзя» или «привет петя». "
+        "Варианты слова — через |, допуск — ~0…~3 (например «железяка~1»). "
+        "У microWakeWord фраза зашита в модель: для этой настройки нужен Vosk. "
+        "Пока фраза не задана в хабе, телефон сохраняет свой выбор."
+    ),
+    min=1,
+    max=80,
+    default="зюзя",
+)
 
 
 class DeviceRegistration(BaseModel):
@@ -211,7 +236,7 @@ class DeviceConfig(BaseModel):
     Чего нет в ``values``, то у устройства по умолчанию."""
 
     rev: int
-    values: dict[str, dict[str, int]]
+    values: dict[str, dict[str, SettingValue]]
     commands: list[Command] = Field(default_factory=list)
     people_rev: int = Field(default=0, serialization_alias="peopleRev")
     # ID людей, наборы которых хаб просит прислать (новые или изменившиеся на телефоне).
@@ -298,10 +323,10 @@ class SettingView(BaseModel):
     """Настройка для страницы админки: описание, заданное значение дома и действующее."""
 
     field: SettingField
-    house_value: int | None
+    house_value: SettingValue | None
 
     @property
-    def effective(self) -> int:
+    def effective(self) -> SettingValue:
         return self.field.default if self.house_value is None else self.house_value
 
 

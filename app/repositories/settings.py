@@ -2,7 +2,7 @@ import json
 import sqlite3
 
 from app.db.database import get_connection
-from app.schemas import SettingField
+from app.schemas import SettingField, SettingValue
 
 
 def _field(row: sqlite3.Row) -> SettingField:
@@ -64,12 +64,12 @@ class SettingsRepository:
             ).fetchone()
         return None if row is None else _field(row)
 
-    def values(self) -> dict[tuple[str, str], int]:
+    def values(self) -> dict[tuple[str, str], SettingValue]:
         with get_connection() as conn:
             rows = conn.execute("SELECT module, key, value FROM setting_values").fetchall()
         return {(row["module"], row["key"]): json.loads(row["value"]) for row in rows}
 
-    def set_value(self, module: str, key: str, value: int, now: float) -> int:
+    def set_value(self, module: str, key: str, value: SettingValue, now: float) -> int:
         """Задать значение дома; возвращает новую ревизию."""
         with get_connection() as conn:
             conn.execute(

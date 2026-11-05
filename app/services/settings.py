@@ -2,7 +2,8 @@ import time
 from collections.abc import Callable
 
 from app.repositories.settings import SettingsRepository
-from app.schemas import SettingView, in_range
+from app.schemas import SettingValue, SettingView, in_range
+from app.services.wake_phrase import normalize_wake_phrase
 
 
 class SettingError(Exception):
@@ -34,10 +35,22 @@ class SettingsService:
         field = self._repository.field(module, key)
         if field is None:
             raise SettingError("Такой настройки нет")
-        try:
-            value = int(raw.strip())
-        except ValueError:
-            raise SettingError(f"«{field.title}»: нужно целое число") from None
+        value: SettingValue
+        if field.type == "int":
+            try:
+                value = int(raw.strip())
+            except ValueError:
+                raise SettingError(f"«{field.title}»: нужно целое число") from None
+        elif (module, key) == ("audio", "phrase"):
+            phrase = normalize_wake_phrase(raw)
+            if phrase is None:
+                raise SettingError(
+                    "Фраза пробуждения: нужно 1–4 русских слова, до 80 символов. "
+                    "Варианты — через |, допуск — ~0…~3."
+                )
+            value = phrase
+        else:
+            value = raw.strip()
         if not in_range(field, value):
             raise SettingError(f"«{field.title}»: допустимо от {field.min} до {field.max}")
         return self._repository.set_value(module, key, value, self._clock())
