@@ -231,6 +231,23 @@ class RoleSet(BaseModel):
     words: list[str]
 
 
+class RoomWords(BaseModel):
+    """Комната с колонкой для телефона: «передай в детскую» — на её колонку, а не записка."""
+
+    id: str
+    name: str
+    words: list[str]
+
+
+class AnnounceReply(BaseModel):
+    """Чем закончилось «передай в комнату»: ``spoken`` — сказано на колонке; остальное — причина.
+
+    ``text`` — расшифровка, если она получилась (телефон может её повторить)."""
+
+    status: str
+    text: str | None = None
+
+
 class CharacterAppearance(BaseModel):
     characters: dict[str, str] = Field(default_factory=dict)
     accessories: dict[str, dict[str, str]] = Field(default_factory=dict)
@@ -261,6 +278,8 @@ class DeviceConfig(BaseModel):
     transcripts: list["NoteText"] = Field(default_factory=list)
     # Роли людей дома; телефон кладёт их в книгу адресатов.
     roles: list[RoleSet] = Field(default_factory=list)
+    # Комнаты с колонками: по ним телефон отличает «передай в детскую» от записки человеку.
+    rooms: list[RoomWords] = Field(default_factory=list)
     weather: WeatherReading | None = None
 
 

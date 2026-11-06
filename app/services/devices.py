@@ -14,6 +14,7 @@ from app.schemas import (
     WeatherReading,
 )
 from app.services.characters import CharacterService
+from app.services.home import HomeService
 from app.services.notes import NotesService
 from app.services.people import PeopleService
 from app.services.weather import WeatherService
@@ -42,6 +43,7 @@ class DeviceService:
         self._house = PeopleService(self._people, self._devices, clock)
         self._weather = weather or WeatherService(clock=clock)
         self._notes = NotesService(clock=clock)
+        self._home = HomeService(clock=clock)
         self._clock = clock
 
     def register(self, reg: DeviceRegistration) -> DeviceConfig:
@@ -97,6 +99,7 @@ class DeviceService:
             weather=_next_day(reading, self._clock()),
             transcripts=self._notes.texts_for(device_id),
             roles=self._house.roles(),
+            rooms=self._home.rooms_for_phone(),
         )
 
 

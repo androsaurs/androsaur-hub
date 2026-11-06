@@ -163,6 +163,19 @@ CREATE TABLE IF NOT EXISTS hub_notes (
     has_audio      INTEGER NOT NULL DEFAULT 1
 );
 
+-- Home Assistant: адрес (токен лежит в integrations, id home_assistant) и комнаты с колонками.
+-- forms — как комнату называют голосом («детская», «комната Полины»), JSON-список.
+CREATE TABLE IF NOT EXISTS home_assistant_settings (
+    id  INTEGER PRIMARY KEY CHECK (id = 1),
+    url TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS speaker_rooms (
+    id        TEXT PRIMARY KEY,
+    title     TEXT NOT NULL,
+    forms     TEXT NOT NULL DEFAULT '[]',
+    entity_id TEXT NOT NULL
+);
+
 -- Погода дома: место (задаётся в админке) и последний прогноз.
 -- Одна строка; нет строки — место не задано.
 CREATE TABLE IF NOT EXISTS weather (

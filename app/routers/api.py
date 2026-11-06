@@ -1,8 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
+from fastapi.concurrency import run_in_threadpool
 
 from app.dependencies import (
     get_character_service,
     get_device_service,
+    get_home_service,
     get_horoscope_service,
     get_notes_service,
     get_people_service,
@@ -10,6 +12,7 @@ from app.dependencies import (
 from app.horoscope import HoroscopeReply, HoroscopeRequest
 from app.schemas import (
     AccessorySelection,
+    AnnounceReply,
     CharacterAppearance,
     DeviceConfig,
     DeviceRegistration,
@@ -21,6 +24,7 @@ from app.schemas import (
 )
 from app.services.characters import CharacterError, CharacterService
 from app.services.devices import DeviceService, UnknownDevice
+from app.services.home import HomeService
 from app.services.horoscope import HoroscopeService
 from app.services.notes import NotesService
 from app.services.people import PeopleService, PersonError
@@ -154,3 +158,22 @@ async def upload_note(
     except ValueError:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "not a wav") from None
     return {"added": added}
+
+
+@router.post("/device/announce/{room_id}", response_model=AnnounceReply)
+async def announce(
+    room_id: str,
+    request: Request,
+    response: Response,
+    sender: str = Query(default="", max_length=60, alias="from"),
+    person: str = Query(default="", max_length=64, alias="fromId"),
+    service: HomeService = Depends(get_home_service),
+) -> AnnounceReply:
+    """Звук сообщения (WAV в теле) расшифровывается и произносится на колонке комнаты."""
+    response.headers["Cache-Control"] = "no-store"
+    wav = await request.body()
+    if len(wav) > _MAX_NOTE_BYTES:
+        raise HTTPException(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, "too large")
+    if not wav.startswith(b"RIFF") or len(wav) < 100:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "not a wav")
+    return await run_in_threadpool(service.announce, room_id, wav, person, sender)

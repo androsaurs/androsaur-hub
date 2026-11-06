@@ -9,6 +9,7 @@ from app.clients.weather import WeatherError
 from app.dependencies import (
     get_character_service,
     get_device_service,
+    get_home_service,
     get_horoscope_service,
     get_integrations_service,
     get_notes_service,
@@ -19,6 +20,7 @@ from app.dependencies import (
 from app.horoscope import SIGNS, HoroscopeError
 from app.services.characters import CharacterError, CharacterService
 from app.services.devices import DeviceService
+from app.services.home import HomeService, HomeSettingError
 from app.services.horoscope import HoroscopeService
 from app.services.integrations import IntegrationError, IntegrationsService
 from app.services.notes import NotesService
@@ -415,3 +417,80 @@ def _back(error: str | None = None, path: str = "/") -> RedirectResponse:
     # 303 → браузер делает GET, защита от повторной отправки формы.
     url = path if error is None else f"{path}?error={quote(error)}"
     return RedirectResponse(url=url, status_code=303)
+
+
+@router.get("/home", response_class=HTMLResponse)
+def home_page(
+    request: Request,
+    error: str | None = None,
+    home: HomeService = Depends(get_home_service),
+) -> HTMLResponse:
+    speakers, speakers_error = home.speakers()
+    return templates.TemplateResponse(
+        request,
+        "home.html",
+        {
+            "page": "home",
+            "url": home.url() or "",
+            "key_hint": home.key_hint(),
+            "check": home.check_state(),
+            "rooms": home.rooms(),
+            "speakers": speakers,
+            "speakers_error": speakers_error,
+            "now": time.time(),
+            "error": error,
+        },
+    )
+
+
+def _home(action: Callable[[], object]) -> RedirectResponse:
+    try:
+        action()
+    except HomeSettingError as e:
+        return _back(str(e), "/home")
+    return _back(path="/home")
+
+
+@router.post("/home/connection")
+def save_home_connection(
+    url: str = Form(...),
+    token: str = Form(""),
+    home: HomeService = Depends(get_home_service),
+) -> RedirectResponse:
+    return _home(lambda: home.save_connection(url, token))
+
+
+@router.post("/home/check")
+def check_home(home: HomeService = Depends(get_home_service)) -> RedirectResponse:
+    return _home(home.check)
+
+
+@router.post("/home/token/clear")
+def clear_home_token(home: HomeService = Depends(get_home_service)) -> RedirectResponse:
+    return _home(home.clear_token)
+
+
+@router.post("/home/rooms")
+def add_room(
+    title: str = Form(...),
+    forms: str = Form(""),
+    entity_id: str = Form(...),
+    home: HomeService = Depends(get_home_service),
+) -> RedirectResponse:
+    return _home(lambda: home.add_room(title, forms, entity_id))
+
+
+@router.post("/home/rooms/{room_id}")
+def update_room(
+    room_id: str,
+    title: str = Form(...),
+    forms: str = Form(""),
+    entity_id: str = Form(...),
+    home: HomeService = Depends(get_home_service),
+) -> RedirectResponse:
+    return _home(lambda: home.update_room(room_id, title, forms, entity_id))
+
+
+@router.post("/home/rooms/{room_id}/delete")
+def delete_room(room_id: str, home: HomeService = Depends(get_home_service)) -> RedirectResponse:
+    return _home(lambda: home.delete_room(room_id))

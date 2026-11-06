@@ -1,5 +1,6 @@
 from app.services.characters import CharacterService
 from app.services.devices import DeviceService
+from app.services.home import HomeService
 from app.services.horoscope import HoroscopeService
 from app.services.integrations import IntegrationsService
 from app.services.notes import NotesService
@@ -44,3 +45,8 @@ def get_integrations_service() -> IntegrationsService:
 def get_notes_service() -> NotesService:
     """FastAPI-зависимость: голосовые записки в хабе."""
     return NotesService()
+
+
+def get_home_service() -> HomeService:
+    """FastAPI-зависимость: Home Assistant и комнаты с колонками."""
+    return HomeService()

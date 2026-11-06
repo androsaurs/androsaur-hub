@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+
+{% block title %}Умный дом · {{ app_name }}{% endblock %}
+
+{% block content %}
+<h1>Умный дом</h1>
+<p class="hint">Home Assistant дома. Пока в нём одна функция: «Зюзя, передай в детскую» — сказанное после этого произносится на колонке Яндекса в этой комнате («Папа говорит: …»). Нужна интеграция Groq: сообщение расшифровывается там и нигде не хранится. Без хаба или Home Assistant телефон отвечает «Дом недоступен».</p>
+
+{% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+
+<ul class="integrations">
+  <li class="integration {% if key_hint %}on{% endif %}">
+    <div class="setting-head">
+      <span class="setting-title">Home Assistant</span>
+      <span class="badge {% if key_hint %}on{% endif %}">{{ 'подключён' if key_hint else 'не подключён' }}</span>
+    </div>
+    <p class="setting-desc">Адрес и долгосрочный токен доступа (профиль → «Долгосрочные токены доступа»). Токен хранится только в базе хаба, здесь видны его последние символы.</p>
+    <form class="setting-form" method="post" action="/home/connection">
+      <input type="url" name="url" required class="wide" value="{{ url }}" placeholder="http://192.168.1.71:8123" aria-label="Адрес Home Assistant">
+      <input type="password" name="token" autocomplete="off" class="wide"
+             placeholder="{% if key_hint %}Новый токен (сохранён {{ key_hint }}), можно не менять{% else %}Токен{% endif %}"
+             aria-label="Токен Home Assistant" {% if not key_hint %}required{% endif %}>
+      <button type="submit">Сохранить</button>
+    </form>
+    {% if key_hint %}
+    <div class="integration-actions">
+      <form method="post" action="/home/check"><button type="submit">Проверить соединение</button></form>
+      <form method="post" action="/home/token/clear"><button type="submit" class="link">Удалить токен</button></form>
+    </div>
+    {% endif %}
+    {% if check %}
+    <p class="check {% if check[1] %}okay{% else %}failed{% endif %}">{{ check[2] }} · {{ (now - check[0]) | int | ago }}</p>
+    {% endif %}
+  </li>
+
+  <li class="integration {% if rooms %}on{% endif %}">
+    <div class="setting-head">
+      <span class="setting-title">Комнаты с колонками</span>
+      <span class="badge {% if rooms %}on{% endif %}">{{ rooms | length }}</span>
+    </div>
+    <p class="setting-desc">«Передай <b>в</b> детскую …» — на колонку; «передай жене …» — записка человеку. Колонку выбирают по названию из Home Assistant. Голосовые названия — через запятую, как их произносят после «в» («детская, детскую, детской»); пусто — по названию комнаты. Названия не должны повторяться.</p>
+    {% if speakers_error %}<p class="check failed">Список колонок не получен: {{ speakers_error }}</p>{% endif %}
+
+    {% for room in rooms %}
+    <form class="setting-form" method="post" action="/home/rooms/{{ room.id }}">
+      <input type="text" name="title" required maxlength="40" value="{{ room.title }}" aria-label="Название комнаты">
+      <input type="text" name="forms" class="wide" value="{{ room.forms | join(', ') }}" aria-label="Голосовые названия">
+      <select name="entity_id" aria-label="Колонка">
+        {% for s in speakers %}
+        <option value="{{ s.entity_id }}" {% if s.entity_id == room.entity_id %}selected{% endif %}>{{ s.name }}</option>
+        {% endfor %}
+        {% if room.entity_id not in speakers | map(attribute='entity_id') %}
+        <option value="{{ room.entity_id }}" selected>{{ room.entity_id }}</option>
+        {% endif %}
+      </select>
+      <button type="submit" class="secondary">Сохранить</button>
+    </form>
+    <form method="post" action="/home/rooms/{{ room.id }}/delete"><button type="submit" class="link">Удалить «{{ room.title }}»</button></form>
+    {% endfor %}
+
+    {% if speakers %}
+    <h2>Новая комната</h2>
+    <form class="setting-form" method="post" action="/home/rooms">
+      <input type="text" name="title" required maxlength="40" placeholder="Детская" aria-label="Название комнаты">
+      <input type="text" name="forms" class="wide" placeholder="детская, детскую, детской" aria-label="Голосовые названия">
+      <select name="entity_id" aria-label="Колонка">
+        {% for s in speakers %}<option value="{{ s.entity_id }}">{{ s.name }}</option>{% endfor %}
+      </select>
+      <button type="submit">Добавить</button>
+    </form>
+    {% else %}
+    <p class="setting-desc">Подключите Home Assistant, чтобы выбрать колонки.</p>
+    {% endif %}
+  </li>
+</ul>
+{% endblock %}
