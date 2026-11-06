@@ -38,6 +38,18 @@ CATALOG = (
         "#e9c89b",
         "Пухлый золотистый друг с круглыми ушками, усами и мягкими щёчками.",
     ),
+    Character(
+        "penguin",
+        "Пингвин",
+        "#4c7cf3",
+        "Синий пингвинёнок с большой головой, оранжевыми лапками и яркими глазами.",
+    ),
+    Character(
+        "penguin2",
+        "Пингвин 2",
+        "#4c7cf3",
+        "Настоящий пингвин: грушевидное тело, высокое белое брюшко и ласты-треугольники.",
+    ),
 )
 
 
@@ -48,6 +60,8 @@ class CharacterError(Exception):
 SUPPORTED_ACCESSORIES = {
     "puf": {"none", "glasses", "bow", "scarf", "crown"},
     "hamster": {"none", "glasses", "bow", "seed"},
+    "penguin": {"none", "bobble_hat", "headphones", "scarf", "cap", "hoodie"},
+    "penguin2": {"none", "bobble_hat", "headphones", "scarf", "cap", "hoodie"},
 }
 
 

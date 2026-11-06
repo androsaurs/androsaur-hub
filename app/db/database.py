@@ -12,7 +12,10 @@ CREATE TABLE IF NOT EXISTS character_accessories (
     person_id TEXT NOT NULL REFERENCES house_people(id) ON DELETE CASCADE,
     character_id TEXT NOT NULL,
     accessory TEXT NOT NULL
-        CHECK(accessory IN ('none', 'glasses', 'bow', 'scarf', 'crown', 'seed')),
+        CHECK(accessory IN (
+            'none', 'glasses', 'bow', 'scarf', 'crown', 'seed',
+            'bobble_hat', 'headphones', 'cap', 'hoodie'
+        )),
     PRIMARY KEY (person_id, character_id)
 );
 """
@@ -253,7 +256,7 @@ def init_db() -> None:
         old_accessories = conn.execute(
             "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'character_accessories'"
         ).fetchone()
-        if old_accessories and "'bow'" not in old_accessories["sql"]:
+        if old_accessories and "'hoodie'" not in old_accessories["sql"]:
             # SQLite cannot alter CHECK constraints. Preserve every saved preference atomically.
             conn.execute("BEGIN IMMEDIATE")
             try:

@@ -6,9 +6,12 @@ from tests.test_people import DEVICE, KATYA, OTHER, PAPA, join, phone_sync
 def test_every_supported_outfit_follows_its_owner_and_unsupported_pairs_are_rejected(client):
     join(client, DEVICE, "Дом", [KATYA])
     join(client, OTHER, "Кухня")
+    penguin_outfits = ["bobble_hat", "headphones", "scarf", "cap", "hoodie", "none"]
     for character, supported, unsupported in (
         ("puf", ["bow", "scarf", "crown", "glasses", "none"], ["seed"]),
         ("hamster", ["seed", "bow", "glasses", "none"], ["scarf", "crown"]),
+        ("penguin", penguin_outfits, ["glasses", "bow", "crown", "seed"]),
+        ("penguin2", penguin_outfits, ["glasses", "bow", "crown", "seed"]),
     ):
         choose(client, KATYA["id"], character)
         for accessory in supported:
@@ -45,6 +48,29 @@ def test_upgrading_the_glasses_only_database_keeps_preferences_and_accepts_new_o
     assert edit(client, accessory="bow").status_code == 200
     init_db()
     assert client.get("/api/characters").json()["accessories"] == {KATYA["id"]: {"puf": "bow"}}
+
+
+def test_upgrading_the_database_from_before_the_penguin_keeps_preferences(client):
+    join(client, DEVICE, "Дом", [KATYA])
+    choose(client, KATYA["id"], "hamster")
+    with get_connection() as conn:
+        conn.execute("DROP TABLE character_accessories")
+        conn.execute(
+            "CREATE TABLE character_accessories ("
+            "person_id TEXT NOT NULL REFERENCES house_people(id) ON DELETE CASCADE, "
+            "character_id TEXT NOT NULL, "
+            "accessory TEXT NOT NULL CHECK(accessory IN "
+            "('none', 'glasses', 'bow', 'scarf', 'crown', 'seed')), "
+            "PRIMARY KEY(person_id, character_id))"
+        )
+        conn.execute(
+            "INSERT INTO character_accessories VALUES (?, 'hamster', 'seed')", (KATYA["id"],)
+        )
+    init_db()
+    assert client.get("/api/characters").json()["accessories"] == {KATYA["id"]: {"hamster": "seed"}}
+    choose(client, KATYA["id"], "penguin")
+    assert edit(client, character="penguin", accessory="hoodie").status_code == 200
+    assert client.get("/api/characters").json()["accessories"][KATYA["id"]]["penguin"] == "hoodie"
 
 
 def edit(client, person=KATYA["id"], character="puf", accessory="glasses"):

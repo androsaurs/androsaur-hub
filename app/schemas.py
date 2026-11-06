@@ -256,7 +256,18 @@ class CharacterAppearance(BaseModel):
 class AccessorySelection(BaseModel):
     person: str = Field(pattern=_PERSON_ID)
     character: str = Field(pattern=_NAME)
-    accessory: Literal["none", "glasses", "bow", "scarf", "crown", "seed"]
+    accessory: Literal[
+        "none",
+        "glasses",
+        "bow",
+        "scarf",
+        "crown",
+        "seed",
+        "bobble_hat",
+        "headphones",
+        "cap",
+        "hoodie",
+    ]
 
 
 class DeviceConfig(BaseModel):

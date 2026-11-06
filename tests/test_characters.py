@@ -12,8 +12,9 @@ def test_catalog_can_be_explored_without_selecting_a_person(client):
     assert "Кошечка" in page.text and "Собачка" in page.text
     assert "Пуф" in page.text
     assert "Хомяк" in page.text
-    assert page.text.count('type="submit" disabled') == 5
-    for name in ("dinosaur", "cat", "dog", "puf", "hamster"):
+    assert "Пингвин" in page.text and "Пингвин 2" in page.text
+    assert page.text.count('type="submit" disabled') == 7
+    for name in ("dinosaur", "cat", "dog", "puf", "hamster", "penguin", "penguin2"):
         assert client.get(f"/static/characters/{name}.svg").status_code == 200
 
 
