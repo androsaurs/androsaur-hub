@@ -190,6 +190,7 @@ class PeopleRepository:
             rows = conn.execute(
                 """
                 SELECT h.id, h.name, h.status, h.roles, h.zodiac_sign, h.birth_date,
+                       h.horoscope_in_greeting,
                        (SELECT COUNT(*) FROM house_vectors v WHERE v.person_id = h.id) AS samples,
                        COALESCE(o.name, '') AS origin
                 FROM house_people h LEFT JOIN devices o ON o.id = h.origin_device
@@ -217,6 +218,7 @@ class PeopleRepository:
                     roles=json.loads(row["roles"] or "[]"),
                     zodiac_sign=row["zodiac_sign"],
                     birth_date=date.fromisoformat(row["birth_date"]) if row["birth_date"] else None,
+                    horoscope_in_greeting=bool(row["horoscope_in_greeting"]),
                 ),
             )
             for row in rows
@@ -228,6 +230,17 @@ class PeopleRepository:
                 conn.execute(
                     "UPDATE house_people SET birth_date = ? WHERE id = ? AND status = 'active'",
                     (birth_date.isoformat() if birth_date else None, person_id),
+                ).rowcount
+                == 1
+            )
+
+    def set_horoscope_in_greeting(self, person_id: str, enabled: bool) -> bool:
+        with get_connection() as conn:
+            return (
+                conn.execute(
+                    "UPDATE house_people SET horoscope_in_greeting = ? "
+                    "WHERE id = ? AND status = 'active'",
+                    (int(enabled), person_id),
                 ).rowcount
                 == 1
             )

@@ -111,7 +111,8 @@ CREATE TABLE IF NOT EXISTS house_people (
     -- Роли: как ещё называют человека («папа», «мама») — по ним тоже оставляют записки.
     roles         TEXT NOT NULL DEFAULT '[]',
     zodiac_sign   TEXT NOT NULL DEFAULT '',
-    birth_date    TEXT
+    birth_date    TEXT,
+    horoscope_in_greeting INTEGER NOT NULL DEFAULT 0
 );
 
 -- Наборы чисел лица (биометрия семьи): только в этой базе, не в логах и не в админке.
@@ -269,6 +270,11 @@ def init_db() -> None:
             conn.execute("ALTER TABLE house_people ADD COLUMN zodiac_sign TEXT NOT NULL DEFAULT ''")
         if house and "birth_date" not in house:
             conn.execute("ALTER TABLE house_people ADD COLUMN birth_date TEXT")
+        if house and "horoscope_in_greeting" not in house:
+            conn.execute(
+                "ALTER TABLE house_people ADD COLUMN "
+                "horoscope_in_greeting INTEGER NOT NULL DEFAULT 0"
+            )
         weather = {row["name"] for row in conn.execute("PRAGMA table_info(weather)")}
         if weather and "hours" not in weather:
             conn.execute("ALTER TABLE weather ADD COLUMN hours TEXT")

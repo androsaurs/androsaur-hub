@@ -57,10 +57,11 @@ class HoroscopeRepository:
                 (provider, day, now + 60),
             )
 
-    def person(self, person: str) -> tuple[str, str, date | None] | None:
+    def person(self, person: str) -> tuple[str, str, date | None, bool] | None:
         with get_connection() as conn:
             row = conn.execute(
-                "SELECT status, zodiac_sign, birth_date FROM house_people WHERE id = ?",
+                "SELECT status, zodiac_sign, birth_date, horoscope_in_greeting "
+                "FROM house_people WHERE id = ?",
                 (person,),
             ).fetchone()
         return (
@@ -68,6 +69,7 @@ class HoroscopeRepository:
                 row["status"],
                 row["zodiac_sign"],
                 date.fromisoformat(row["birth_date"]) if row["birth_date"] else None,
+                bool(row["horoscope_in_greeting"]),
             )
             if row
             else None

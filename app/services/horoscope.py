@@ -44,7 +44,7 @@ class HoroscopeService:
         if not self._repository.set_sign(person, sign):
             raise HoroscopeError("Выберите человека дома")
 
-    def today(self, person: str) -> HoroscopeReply:
+    def today(self, person: str, for_greeting: bool = False) -> HoroscopeReply:
         zone_name = get_settings().horoscope_timezone
         zone = ZoneInfo(zone_name)
         now = self._clock()
@@ -61,6 +61,9 @@ class HoroscopeService:
         profile = self._repository.person(person)
         if profile is None or profile[0] != "active":
             return reply
+        reply = reply.model_copy(update={"greeting_enabled": profile[3]})
+        if for_greeting and not profile[3]:
+            return reply.model_copy(update={"status": "greeting_disabled"})
         sign = effective_zodiac_sign(profile[1], profile[2])
         if sign not in SIGNS:
             return reply.model_copy(update={"status": "sign_missing"})

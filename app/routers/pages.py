@@ -206,6 +206,19 @@ def set_person_birth_date(
     return _back(path="/people")
 
 
+@router.post("/people/horoscope-greeting")
+def set_person_horoscope_greeting(
+    person: str = Form(...),
+    enabled: bool = Form(False),
+    people: PeopleService = Depends(get_people_service),
+) -> RedirectResponse:
+    try:
+        people.set_horoscope_in_greeting(person, enabled)
+    except PersonError as e:
+        return _back(str(e), "/people")
+    return _back(path="/people")
+
+
 @router.post("/people/roles")
 def set_person_roles(
     person: str = Form(...),

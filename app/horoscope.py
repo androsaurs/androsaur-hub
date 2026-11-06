@@ -47,6 +47,7 @@ class HoroscopeSource:
 
 class HoroscopeRequest(BaseModel):
     person: str = Field(min_length=1, max_length=100)
+    for_greeting: bool = False
 
 
 class HoroscopeReply(BaseModel):
@@ -55,6 +56,7 @@ class HoroscopeReply(BaseModel):
     timezone: str
     valid_until_ms: int
     person: str
+    greeting_enabled: bool = False
     sign: str | None = None
     sign_name: str | None = None
     text: str | None = None

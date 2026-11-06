@@ -173,6 +173,10 @@ class PeopleService:
         """Люди, с которыми пришёл телефон из другой системы, — ждут решения."""
         return [view for status, view in self._repository.views() if status == "pending"]
 
+    def set_horoscope_in_greeting(self, person_id: str, enabled: bool) -> None:
+        if not self._repository.set_horoscope_in_greeting(person_id, enabled):
+            raise PersonError("Выберите человека дома")
+
     def commands(self) -> list[CommandView]:
         return self._repository.recent()
 

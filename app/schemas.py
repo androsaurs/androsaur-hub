@@ -276,6 +276,7 @@ class PersonView(BaseModel):
     roles: list[str] = Field(default_factory=list)
     zodiac_sign: str = ""
     birth_date: date | None = None
+    horoscope_in_greeting: bool = False
     age: int | None = None
     derived_zodiac_sign: str = ""
     effective_zodiac_sign: str = ""

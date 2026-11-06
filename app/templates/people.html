@@ -68,6 +68,15 @@
     {% endif %}
     {% if p.birth_date %}<p class="profile-hint">Выбранный вручную знак имеет приоритет. Для автоматического выбора оставьте «По дате рождения».</p>{% endif %}
     <p class="hint">Скажите «Зюзя», затем «Расскажи мой гороскоп». Знак следует за человеком на всех телефонах.</p>
+    <form class="rename-form" method="post" action="/people/horoscope-greeting">
+      <input type="hidden" name="person" value="{{ p.id }}">
+      <label class="profile-checkbox" for="horoscope-greeting-{{ p.id }}">
+        <input id="horoscope-greeting-{{ p.id }}" type="checkbox" name="enabled" value="1" {% if p.horoscope_in_greeting %}checked{% endif %}>
+        Читать гороскоп в приветствии
+      </label>
+      <button type="submit" class="secondary">Сохранить приветствие</button>
+    </form>
+    <p class="profile-hint">После погоды при первом приветствии утром (05:00–11:59), один раз в день. Укажите дату рождения или знак. Общее приветствие должно быть включено в настройках дома.</p>
     <form class="rename-form" method="post" action="/people/rename">
       <input type="hidden" name="person" value="{{ p.id }}">
       <input type="text" name="to" required maxlength="40" placeholder="Новое имя" aria-label="Новое имя для {{ p.name }}">

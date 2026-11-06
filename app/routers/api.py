@@ -35,7 +35,7 @@ def daily_horoscope(
     service: HoroscopeService = Depends(get_horoscope_service),
 ) -> HoroscopeReply:
     response.headers["Cache-Control"] = "no-store"
-    return service.today(payload.person)
+    return service.today(payload.person, for_greeting=payload.for_greeting)
 
 
 @router.get("/characters")
