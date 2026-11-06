@@ -248,6 +248,18 @@ class AnnounceReply(BaseModel):
     text: str | None = None
 
 
+class ThingReply(BaseModel):
+    """Чем кончилось «запомни» / «вспомни»: ``saved``, ``updated`` (``previous`` — прежняя
+    запись), ``found``, ``not_found`` и причины (``unclear``, ``no_groq``,
+    ``no_memory``, ``error``).
+
+    ``text`` — что запомнили, что нашли или что расслышали."""
+
+    status: str
+    text: str | None = None
+    previous: str | None = None
+
+
 class CharacterAppearance(BaseModel):
     characters: dict[str, str] = Field(default_factory=dict)
     accessories: dict[str, dict[str, str]] = Field(default_factory=dict)

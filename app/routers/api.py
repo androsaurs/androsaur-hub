@@ -8,6 +8,7 @@ from app.dependencies import (
     get_horoscope_service,
     get_notes_service,
     get_people_service,
+    get_things_service,
 )
 from app.horoscope import HoroscopeReply, HoroscopeRequest
 from app.schemas import (
@@ -21,6 +22,7 @@ from app.schemas import (
     HubNote,
     PeopleRequest,
     PeopleUpload,
+    ThingReply,
 )
 from app.services.characters import CharacterError, CharacterService
 from app.services.devices import DeviceService, UnknownDevice
@@ -28,6 +30,7 @@ from app.services.home import HomeService
 from app.services.horoscope import HoroscopeService
 from app.services.notes import NotesService
 from app.services.people import PeopleService, PersonError
+from app.services.things import ThingsService
 
 router = APIRouter(prefix="/api", tags=["api"])
 
@@ -177,3 +180,26 @@ async def announce(
     if not wav.startswith(b"RIFF") or len(wav) < 100:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "not a wav")
     return await run_in_threadpool(service.announce, room_id, wav, person, sender)
+
+
+@router.post("/device/things/{kind}", response_model=ThingReply)
+async def things(
+    kind: str,
+    request: Request,
+    response: Response,
+    sender: str = Query(default="", max_length=60, alias="from"),
+    person: str = Query(default="", max_length=64, alias="fromId"),
+    service: ThingsService = Depends(get_things_service),
+) -> ThingReply:
+    """Голос после «запомни» (``remember``) или «где лежит» (``find``): WAV в теле запроса."""
+    response.headers["Cache-Control"] = "no-store"
+    if kind not in ("remember", "find"):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "unknown kind")
+    wav = await request.body()
+    if len(wav) > _MAX_NOTE_BYTES:
+        raise HTTPException(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, "too large")
+    if not wav.startswith(b"RIFF") or len(wav) < 100:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "not a wav")
+    if kind == "remember":
+        return await run_in_threadpool(service.remember, wav, person, sender)
+    return await run_in_threadpool(service.find, wav)

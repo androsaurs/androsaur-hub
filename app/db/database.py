@@ -179,6 +179,13 @@ CREATE TABLE IF NOT EXISTS speaker_rooms (
     entity_id TEXT NOT NULL
 );
 
+-- Сервер памяти («где что лежит»): адрес и стор; ключ лежит в integrations (id memory_service).
+CREATE TABLE IF NOT EXISTS memory_settings (
+    id    INTEGER PRIMARY KEY CHECK (id = 1),
+    url   TEXT NOT NULL,
+    store TEXT NOT NULL
+);
+
 -- Погода дома: место (задаётся в админке) и последний прогноз.
 -- Одна строка; нет строки — место не задано.
 CREATE TABLE IF NOT EXISTS weather (

@@ -15,6 +15,7 @@ from app.dependencies import (
     get_notes_service,
     get_people_service,
     get_settings_service,
+    get_things_service,
     get_weather_service,
 )
 from app.horoscope import SIGNS, HoroscopeError
@@ -26,6 +27,7 @@ from app.services.integrations import IntegrationError, IntegrationsService
 from app.services.notes import NotesService
 from app.services.people import ERRORS, PeopleService, PersonError
 from app.services.settings import SettingError, SettingsService
+from app.services.things import ThingsService, ThingsSettingError
 from app.services.weather import WeatherService, describe
 from app.templating import templates
 
@@ -494,3 +496,63 @@ def update_room(
 @router.post("/home/rooms/{room_id}/delete")
 def delete_room(room_id: str, home: HomeService = Depends(get_home_service)) -> RedirectResponse:
     return _home(lambda: home.delete_room(room_id))
+
+
+@router.get("/things", response_class=HTMLResponse)
+def things_page(
+    request: Request,
+    error: str | None = None,
+    things: ThingsService = Depends(get_things_service),
+) -> HTMLResponse:
+    url, store = things.settings()
+    records, records_error = things.records()
+    return templates.TemplateResponse(
+        request,
+        "things.html",
+        {
+            "page": "things",
+            "url": url,
+            "store": store,
+            "key_hint": things.key_hint(),
+            "check": things.check_state(),
+            "records": records,
+            "records_error": records_error,
+            "now": time.time(),
+            "error": error,
+        },
+    )
+
+
+def _things(action: Callable[[], object]) -> RedirectResponse:
+    try:
+        action()
+    except ThingsSettingError as e:
+        return _back(str(e), "/things")
+    return _back(path="/things")
+
+
+@router.post("/things/connection")
+def save_things_connection(
+    url: str = Form(...),
+    store: str = Form(""),
+    key: str = Form(""),
+    things: ThingsService = Depends(get_things_service),
+) -> RedirectResponse:
+    return _things(lambda: things.save_connection(url, store, key))
+
+
+@router.post("/things/check")
+def check_things(things: ThingsService = Depends(get_things_service)) -> RedirectResponse:
+    return _things(things.check)
+
+
+@router.post("/things/key/clear")
+def clear_things_key(things: ThingsService = Depends(get_things_service)) -> RedirectResponse:
+    return _things(things.clear_key)
+
+
+@router.post("/things/{content_hash}/delete")
+def delete_thing(
+    content_hash: str, things: ThingsService = Depends(get_things_service)
+) -> RedirectResponse:
+    return _things(lambda: things.delete(content_hash))

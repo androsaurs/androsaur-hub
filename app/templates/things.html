@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block title %}Память · {{ app_name }}{% endblock %}
+
+{% block content %}
+<h1>Память</h1>
+<p class="hint">Семейная память: вещи и любые факты. «Зюзя, запомни» → «Говорите.» → «батарейки в верхнем ящике на кухне» или «у Полины день рождения двенадцатого мая». «Зюзя, вспомни» (или «где лежит») → «Что вспомнить?» → «батарейки». Вещь с новым местом заменяет старую запись, факты накапливаются. Нужны интеграция Groq (расшифровка голоса, звук нигде не хранится) и сервер памяти ниже. Записи лежат в отдельном сторе, поэтому поиск не видит остальных записей сервера. Секреты (пароли, платёжные данные) в память не кладите: ответ читается вслух любому, кто спросит. Без хаба или сервера Зюзя отвечает «Память недоступна».</p>
+
+{% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+
+<ul class="integrations">
+  <li class="integration {% if key_hint %}on{% endif %}">
+    <div class="setting-head">
+      <span class="setting-title">Сервер памяти</span>
+      <span class="badge {% if key_hint %}on{% endif %}">{{ 'подключён' if key_hint else 'не подключён' }}</span>
+    </div>
+    <p class="setting-desc">Адрес mcp-memory-service и его API-ключ (передаётся в заголовке X-API-Key). Ключ хранится только в базе хаба, здесь видны его последние символы. Стор — раздел сервера для этих записей, не пересекающийся с другими.</p>
+    <form class="setting-form" method="post" action="/things/connection">
+      <input type="url" name="url" required class="wide" value="{{ url or 'http://mcp-memory.192.168.1.72.sslip.io' }}" aria-label="Адрес сервера памяти">
+      <input type="text" name="store" maxlength="40" value="{{ store }}" aria-label="Стор">
+      <input type="password" name="key" autocomplete="off" class="wide"
+             placeholder="{% if key_hint %}Новый ключ (сохранён {{ key_hint }}), можно не менять{% else %}API-ключ{% endif %}"
+             aria-label="API-ключ сервера памяти" {% if not key_hint %}required{% endif %}>
+      <button type="submit">Сохранить</button>
+    </form>
+    {% if key_hint %}
+    <div class="integration-actions">
+      <form method="post" action="/things/check"><button type="submit">Проверить соединение</button></form>
+      <form method="post" action="/things/key/clear"><button type="submit" class="link">Удалить ключ</button></form>
+    </div>
+    {% endif %}
+    {% if check %}
+    <p class="check {% if check[1] %}okay{% else %}failed{% endif %}">{{ check[2] }} · {{ (now - check[0]) | int | ago }}</p>
+    {% endif %}
+  </li>
+
+  <li class="integration {% if records %}on{% endif %}">
+    <div class="setting-head">
+      <span class="setting-title">Записи</span>
+      <span class="badge {% if records %}on{% endif %}">{{ records | length }}</span>
+    </div>
+    {% if records_error %}<p class="check failed">Записи не получены: {{ records_error }}</p>{% endif %}
+    {% for record in records %}
+    <form method="post" action="/things/{{ record.content_hash }}/delete" class="setting-form">
+      <span class="wide">{{ record.content }}</span>
+      <button type="submit" class="link">Удалить</button>
+    </form>
+    {% else %}
+    {% if not records_error %}<p class="setting-desc">Записей пока нет: скажите «Зюзя, запомни».</p>{% endif %}
+    {% endfor %}
+  </li>
+</ul>
+{% endblock %}
