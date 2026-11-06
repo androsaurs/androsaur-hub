@@ -8,6 +8,7 @@ from app.services.things import ThingsService
 from app.things_text import (
     Record,
     clean,
+    forget_candidates,
     item_and_place,
     kind_and_item,
     numbers,
@@ -42,7 +43,7 @@ class FakeMemory:
         self._check()
         return list(FakeMemory.records_)
 
-    def scores(self, query: str, limit: int = 8) -> dict[str, float]:
+    def scores(self, query: str, limit: int = 12) -> dict[str, float]:
         self._check()
         return dict(FakeMemory.scores_)
 
@@ -54,6 +55,18 @@ class FakeMemory:
         FakeMemory.records_.append(Record(content, digest, item.split(), float(FakeMemory.counter)))
         return digest
 
+    def supersede(self, record: Record, replaced_by: str = "", forgotten: bool = False) -> None:
+        self._check()
+        for r in FakeMemory.records_:
+            if r.content_hash == record.content_hash:
+                r.superseded = True
+
+    def restore(self, record: Record) -> None:
+        self._check()
+        for r in FakeMemory.records_:
+            if r.content_hash == record.content_hash:
+                r.superseded = False
+
     def delete(self, content_hash: str) -> None:
         self._check()
         FakeMemory.records_ = [r for r in FakeMemory.records_ if r.content_hash != content_hash]
@@ -61,6 +74,10 @@ class FakeMemory:
     def check(self) -> str:
         self._check()
         return f"Работает: записей — {len(FakeMemory.records_)}"
+
+
+def active() -> list[str]:
+    return [r.content for r in FakeMemory.records_ if not r.superseded]
 
 
 def record(content: str, hash_: str = "x", score: float = 0.0, created: float = 0.0) -> Record:
@@ -228,10 +245,60 @@ def test_moving_a_thing_replaces_the_old_record_instead_of_adding_a_second(hub):
     reply = say(hub, "remember")
     assert reply["status"] == "updated"
     assert reply["previous"] == "батарейки в верхнем ящике на кухне"
-    assert [r.content for r in FakeMemory.records_] == ["батарейки в нижнем ящике"]
+    assert active() == ["батарейки в нижнем ящике"]
     FakeGroq.result = Transcript("батарейки ААА в шкафу", 82.0, 97.0)
     assert say(hub, "remember")["status"] == "saved"
+    assert len(active()) == 2
+
+
+def test_the_replaced_record_is_kept_hidden_from_answers_and_can_be_brought_back(hub):
+    connect(hub)
+    say(hub, "remember")
+    FakeGroq.result = Transcript("батарейки в нижнем ящике", 82.0, 97.0)
+    say(hub, "remember")
+    # Nothing is deleted: the old record waits, flagged, and is never read aloud.
     assert len(FakeMemory.records_) == 2
+    FakeGroq.result = Transcript("батарейки", 82.0, 97.0)
+    assert say(hub, "find")["text"] == "батарейки в нижнем ящике"
+    page = hub.get("/things").text
+    section = 'setting-title">Заменённые и забытые записи'
+    assert section in page and "батарейки в верхнем ящике на кухне" in page
+    old = next(r for r in FakeMemory.records_ if r.superseded)
+    hub.post(f"/things/{old.content_hash}/restore")
+    assert len(active()) == 2
+    assert section not in hub.get("/things").text
+    assert "нет" in hub.post("/things/nope/restore", follow_redirects=True).text
+
+
+def test_events_for_different_people_do_not_replace_each_other(hub):
+    connect(hub)
+    for phrase in (
+        "тренировка у Миши в среду",
+        "тренировка у Полины в четверг",
+        "день рождения у Полины 12 мая",
+        "день рождения у Миши 3 июня",
+    ):
+        FakeGroq.result = Transcript(phrase, 82.0, 97.0)
+        assert say(hub, "remember")["status"] == "saved"
+    assert len(active()) == 4
+    assert not any(r.superseded for r in FakeMemory.records_)
+    FakeGroq.result = Transcript("вспомни день рождения Миши", 82.0, 97.0)
+    assert say(hub, "find")["text"].startswith("день рождения у Миши 3 июня")
+
+
+def test_a_time_after_the_preposition_is_not_a_place():
+    for phrase in (
+        "тренировка у Миши в среду",
+        "тренировка в среду у Миши",
+        "день рождения у Полины 12 мая",
+        "встреча на 5 мая",
+        "обед в два часа",
+        "урок на следующей неделе",
+        "сборы в пятницу вечером",
+    ):
+        assert kind_and_item(phrase)[0] == "fact", phrase
+    assert kind_and_item("зонт на крючке в прихожей")[0] == "location"
+    assert kind_and_item("ключи у папы")[0] == "fact"
 
 
 def test_a_phrase_with_a_place_is_a_location_and_any_other_is_a_fact():
@@ -248,7 +315,7 @@ def test_any_fact_is_remembered_and_facts_pile_up_instead_of_replacing_each_othe
     for phrase in ("врача зовут Иван Петрович", "врача принимает по вторникам"):
         FakeGroq.result = Transcript(phrase, 82.0, 97.0)
         assert say(hub, "remember")["status"] == "saved"
-    assert [r.content for r in FakeMemory.records_] == [
+    assert active() == [
         "врача зовут Иван Петрович",
         "врача принимает по вторникам",
     ]
@@ -345,4 +412,77 @@ def test_a_sound_that_is_not_a_wav_and_an_unknown_kind_are_refused(hub):
         "/api/device/things/find", content=b"not a wav", headers={"Content-Type": "audio/wav"}
     )
     assert bad.status_code == 422
-    assert hub.post("/api/device/things/forget", content=wav()).status_code == 404
+    assert hub.post("/api/device/things/erase", content=wav()).status_code == 404
+
+
+def remember_all(hub, *phrases):
+    for phrase in phrases:
+        FakeGroq.result = Transcript(phrase, 82.0, 97.0)
+        say(hub, "remember")
+
+
+def test_forgetting_marks_the_one_matching_record_and_says_which(hub):
+    connect(hub)
+    remember_all(hub, "купить макароны", "купить молоко")
+    FakeGroq.result = Transcript("Забудь макароны.", 82.0, 97.0)
+    assert say(hub, "forget") == {
+        "status": "forgotten",
+        "text": "купить макароны",
+        "previous": None,
+    }
+    assert active() == ["купить молоко"]
+    # Nothing is deleted: it waits in the admin and can be brought back.
+    assert len(FakeMemory.records_) == 2
+    FakeGroq.result = Transcript("что купить", 82.0, 97.0)
+    assert say(hub, "find")["text"] == "купить молоко"
+    gone = next(r for r in FakeMemory.records_ if r.superseded)
+    page = hub.get("/things").text
+    assert 'setting-title">Заменённые и забытые записи' in page and "купить макароны" in page
+    hub.post(f"/things/{gone.content_hash}/restore")
+    assert sorted(active()) == ["купить макароны", "купить молоко"]
+
+
+def test_several_matching_records_are_listed_and_none_is_forgotten(hub):
+    connect(hub)
+    remember_all(hub, "купить макароны", "макароны в нижнем ящике")
+    FakeGroq.result = Transcript("забудь макароны", 82.0, 97.0)
+    reply = say(hub, "forget")
+    assert reply["status"] == "ambiguous"
+    assert "купить макароны" in reply["text"] and "макароны в нижнем ящике" in reply["text"]
+    assert len(active()) == 2
+    # Said more exactly, it is the one.
+    FakeGroq.result = Transcript("забудь купить макароны", 82.0, 97.0)
+    assert say(hub, "forget")["status"] == "forgotten"
+    assert active() == ["макароны в нижнем ящике"]
+
+
+def test_nothing_is_forgotten_on_a_resemblance_alone(hub):
+    connect(hub)
+    remember_all(hub, "врача зовут Иван Петрович")
+    FakeMemory.scores_ = {FakeMemory.records_[0].content_hash: 0.95}
+    FakeGroq.result = Transcript("забудь доктора", 82.0, 97.0)
+    assert say(hub, "forget") == {
+        "status": "nothing_to_forget",
+        "text": "доктора",
+        "previous": None,
+    }
+    assert active() == ["врача зовут Иван Петрович"]
+
+
+def test_forgetting_needs_the_numbers_too(hub):
+    connect(hub)
+    remember_all(hub, "два плюс два равно пять")
+    FakeGroq.result = Transcript("забудь три плюс три", 82.0, 97.0)
+    assert say(hub, "forget")["status"] == "nothing_to_forget"
+    assert forget_candidates("три плюс три", FakeMemory.records_) == []
+    assert len(forget_candidates("два плюс два", FakeMemory.records_)) == 1
+
+
+def test_forgetting_is_told_why_it_cannot(hub):
+    assert say(hub, "forget")["status"] == "no_memory"
+    connect(hub)
+    FakeGroq.result = Transcript("мм", 20.0, 97.0)
+    assert say(hub, "forget")["status"] == "unclear"
+    FakeGroq.result = Transcript("забудь макароны", 82.0, 97.0)
+    FakeMemory.fail = "Сервер памяти недоступен"
+    assert say(hub, "forget")["status"] == "error"

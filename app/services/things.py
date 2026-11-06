@@ -17,7 +17,15 @@ from app.repositories.integrations import IntegrationsRepository
 from app.repositories.things import DEFAULT_STORE, MEMORY_SERVICE, ThingsRepository
 from app.schemas import ThingReply
 from app.services.integrations import IntegrationsService
-from app.things_text import Record, clean, kind_and_item, pick, same_item, words
+from app.things_text import (
+    Record,
+    clean,
+    forget_candidates,
+    kind_and_item,
+    pick,
+    same_item,
+    words,
+)
 
 log = logging.getLogger(__name__)
 
@@ -30,8 +38,10 @@ class ThingsSettingError(Exception):
 
 class MemoryLike(Protocol):
     def records(self) -> list[Record]: ...
-    def scores(self, query: str, limit: int = 8) -> dict[str, float]: ...
+    def scores(self, query: str, limit: int = 12) -> dict[str, float]: ...
     def store(self, content: str, item: str, kind: str, author: str, author_id: str) -> str: ...
+    def supersede(self, record: Record, replaced_by: str = "", forgotten: bool = False) -> None: ...
+    def restore(self, record: Record) -> None: ...
     def delete(self, content_hash: str) -> None: ...
     def check(self) -> str: ...
 
@@ -103,15 +113,36 @@ class ThingsService:
         self._secrets.set_check(MEMORY_SERVICE, ok, message, self._clock())
         return ok, message
 
-    def records(self) -> tuple[list[Record], str | None]:
-        """Записи для админки (новые первыми) и причина, если их не получили."""
+    def records(self) -> tuple[list[Record], list[Record], str | None]:
+        """Записи админки (новые первыми): действующие, заменённые и причина, если не получены."""
         client = self._connected()
         if client is None:
-            return [], None
+            return [], [], None
         try:
-            return sorted(client.records(), key=lambda r: -r.created), None
+            everything = sorted(client.records(), key=lambda r: -r.created)
         except MemoryServiceError as e:
-            return [], str(e)
+            return [], [], str(e)
+        return (
+            [r for r in everything if not r.superseded],
+            [r for r in everything if r.superseded],
+            None,
+        )
+
+    def restore(self, content_hash: str) -> None:
+        """Вернуть заменённую запись: она читается рядом с новой (лишнюю удалите в админке)."""
+        client = self._connected()
+        if client is None:
+            raise ThingsSettingError("Сначала укажите адрес и ключ")
+        try:
+            record = next(
+                (r for r in client.records() if r.content_hash == content_hash and r.superseded),
+                None,
+            )
+            if record is None:
+                raise ThingsSettingError("Такой заменённой записи нет")
+            client.restore(record)
+        except MemoryServiceError as e:
+            raise ThingsSettingError(str(e)) from None
 
     def delete(self, content_hash: str) -> None:
         client = self._connected()
@@ -157,14 +188,15 @@ class ThingsService:
             # Одно слово («батарейки») нечего хранить: потом не ответить, что с ним.
             return ThingReply(status="unclear", text=heard)
         try:
-            existing = client.records()
+            existing = [r for r in client.records() if not r.superseded]
             if any(words(r.content) == words(text) for r in existing):
                 return ThingReply(status="saved", text=text)
-            # Предмет с новым местом заменяет старую запись о нём; факты только копятся.
+            # Предмет с новым местом заменяет старую запись о нём (она помечается и возвращается
+            # из админки); факты и всё со временем или «у кого» только копятся.
             same = [r for r in existing if kind == "location" and same_item(item, r.item)]
-            client.store(text, " ".join(item), kind, label.strip(), person_id.strip())
+            new_hash = client.store(text, " ".join(item), kind, label.strip(), person_id.strip())
             for old in same:
-                client.delete(old.content_hash)
+                client.supersede(old, new_hash)
         except MemoryServiceError as e:
             log.warning("things remember failed: %s", e)
             return ThingReply(status="error")
@@ -182,7 +214,7 @@ class ThingsService:
             return problem or ThingReply(status="error")
         query = clean(heard)
         try:
-            records = client.records()
+            records = [r for r in client.records() if not r.superseded]
             scores = client.scores(query)
         except MemoryServiceError as e:
             log.warning("things find failed: %s", e)
@@ -197,3 +229,26 @@ class ThingsService:
         if more:
             answer += f". Есть ещё записи: {more}"
         return ThingReply(status="found", text=answer)
+
+    def forget(self, wav: bytes) -> ThingReply:
+        """«Забудь …»: пометить одну запись, подходящую по словам; несколько — переспросить."""
+        client = self._connected()
+        if client is None:
+            return ThingReply(status="no_memory")
+        heard, problem = self._heard(wav)
+        if problem is not None or heard is None:
+            return problem or ThingReply(status="error")
+        query = clean(heard)
+        try:
+            found = forget_candidates(query, [r for r in client.records() if not r.superseded])
+            if len(found) == 1:
+                client.supersede(found[0], forgotten=True)
+        except MemoryServiceError as e:
+            log.warning("things forget failed: %s", e)
+            return ThingReply(status="error")
+        log.info("things forget: candidates=%d", len(found))
+        if not found:
+            return ThingReply(status="nothing_to_forget", text=query)
+        if len(found) > 1:
+            return ThingReply(status="ambiguous", text="; ".join(r.content for r in found[:3]))
+        return ThingReply(status="forgotten", text=found[0].content)

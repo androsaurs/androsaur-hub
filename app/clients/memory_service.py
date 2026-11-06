@@ -56,6 +56,9 @@ class MemoryServiceClient:
             item=item,
             created=float(raw.get("created_at") or 0.0),
             score=score,
+            superseded=bool(meta.get("superseded")),
+            author_id=str(meta.get("author_id") or ""),
+            kind=str(meta.get("kind") or "location"),
         )
 
     def records(self) -> list[Record]:
@@ -72,7 +75,7 @@ class MemoryServiceClient:
                 break
         return found
 
-    def scores(self, query: str, limit: int = 8) -> dict[str, float]:
+    def scores(self, query: str, limit: int = 12) -> dict[str, float]:
         """Смысловое сходство ближайших записей: hash → оценка (0–1)."""
         data = self._request(
             "POST", "/api/search", json={"query": query, "n_results": limit, "store": self._store}
@@ -106,6 +109,30 @@ class MemoryServiceClient:
         if not data.get("success"):
             raise MemoryServiceError("Сервер памяти не сохранил запись")
         return str(data.get("content_hash", ""))
+
+    def _retag(self, record: Record, tags: list[str], metadata: dict[str, Any]) -> None:
+        self._request(
+            "PUT",
+            f"/api/memories/{record.content_hash}",
+            params={"store": self._store},
+            json={
+                "tags": tags + ([f"by:{record.author_id}"] if record.author_id else []),
+                "metadata": metadata,
+            },
+        )
+
+    def supersede(self, record: Record, replaced_by: str = "", forgotten: bool = False) -> None:
+        """Пометить запись заменённой или забытой: не читается, но лежит в сторе."""
+        meta: dict[str, Any] = {
+            "superseded": True,
+            "replaced_by": replaced_by,
+            "forgotten": forgotten,
+        }
+        self._retag(record, ["home-item-old"], meta)
+
+    def restore(self, record: Record) -> None:
+        tag = "home-fact" if record.kind == "fact" else "home-item"
+        self._retag(record, [tag], {"superseded": False, "replaced_by": "", "forgotten": False})
 
     def delete(self, content_hash: str) -> None:
         self._request("DELETE", f"/api/memories/{content_hash}", params={"store": self._store})

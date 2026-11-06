@@ -505,7 +505,7 @@ def things_page(
     things: ThingsService = Depends(get_things_service),
 ) -> HTMLResponse:
     url, store = things.settings()
-    records, records_error = things.records()
+    records, replaced, records_error = things.records()
     return templates.TemplateResponse(
         request,
         "things.html",
@@ -516,6 +516,7 @@ def things_page(
             "key_hint": things.key_hint(),
             "check": things.check_state(),
             "records": records,
+            "replaced": replaced,
             "records_error": records_error,
             "now": time.time(),
             "error": error,
@@ -549,6 +550,13 @@ def check_things(things: ThingsService = Depends(get_things_service)) -> Redirec
 @router.post("/things/key/clear")
 def clear_things_key(things: ThingsService = Depends(get_things_service)) -> RedirectResponse:
     return _things(things.clear_key)
+
+
+@router.post("/things/{content_hash}/restore")
+def restore_thing(
+    content_hash: str, things: ThingsService = Depends(get_things_service)
+) -> RedirectResponse:
+    return _things(lambda: things.restore(content_hash))
 
 
 @router.post("/things/{content_hash}/delete")

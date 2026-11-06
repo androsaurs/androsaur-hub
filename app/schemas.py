@@ -250,7 +250,8 @@ class AnnounceReply(BaseModel):
 
 class ThingReply(BaseModel):
     """Чем кончилось «запомни» / «вспомни»: ``saved``, ``updated`` (``previous`` — прежняя
-    запись), ``found``, ``not_found`` и причины (``unclear``, ``no_groq``,
+    запись), ``found``, ``not_found``, ``forgotten``, ``ambiguous`` (``text`` — подходящие записи),
+    ``nothing_to_forget`` и причины (``unclear``, ``no_groq``,
     ``no_memory``, ``error``).
 
     ``text`` — что запомнили, что нашли или что расслышали."""

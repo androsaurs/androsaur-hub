@@ -32,6 +32,8 @@ STOP = frozenset(
         "запомните",
         "вспомни",
         "вспомните",
+        "забудь",
+        "забудьте",
         "знаешь",
         "про",
         "расскажи",
@@ -43,7 +45,8 @@ STOP = frozenset(
         "ли",
     ]
 )
-# Здесь кончается название предмета и начинается место: «батарейки | в верхнем ящике».
+# Здесь кончается название предмета и начинается место: «батарейки | в верхнем ящике». «У» тут нет:
+# по-русски это почти всегда «у кого» («тренировка у Миши»), а не место.
 PLACE_WORDS = frozenset(
     [
         "в",
@@ -56,7 +59,6 @@ PLACE_WORDS = frozenset(
         "возле",
         "между",
         "рядом",
-        "у",
         "лежит",
         "лежат",
         "находится",
@@ -98,7 +100,15 @@ def clean(text: str) -> str:
     """Фраза для хранения: без лишних пробелов, точки в конце и повтора «запомни»."""
     parts = " ".join(text.split()).rstrip(" .!?;,")
     lowered = words(parts)
-    while lowered and lowered[0] in {"запомни", "запомните", "вспомни", "вспомните", "что"}:
+    while lowered and lowered[0] in {
+        "запомни",
+        "запомните",
+        "вспомни",
+        "вспомните",
+        "забудь",
+        "забудьте",
+        "что",
+    }:
         parts = parts.split(" ", 1)[1] if " " in parts else ""
         lowered = lowered[1:]
     return parts[:MAX_TEXT].strip()
@@ -149,6 +159,9 @@ class Record:
     item: list[str]
     created: float = 0.0
     score: float = 0.0  # смысловое сходство от сервера, 0 если сервер запись не называл
+    superseded: bool = False  # заменена новой записью о том же предмете; в админке её можно вернуть
+    author_id: str = ""
+    kind: str = "location"  # location | fact
 
 
 def lexical(query: list[str], record: Record) -> float:
@@ -169,12 +182,98 @@ def query_words(text: str) -> list[str]:
     return _meaningful(words(text))
 
 
+_TIME_FORMS = [
+    "понедельник",
+    "понедельника",
+    "вторник",
+    "вторника",
+    "среда",
+    "среду",
+    "среды",
+    "четверг",
+    "четверга",
+    "пятница",
+    "пятницу",
+    "пятницы",
+    "суббота",
+    "субботу",
+    "субботы",
+    "воскресенье",
+    "воскресенья",
+    "январь",
+    "января",
+    "январе",
+    "февраль",
+    "февраля",
+    "феврале",
+    "март",
+    "марта",
+    "марте",
+    "апрель",
+    "апреля",
+    "апреле",
+    "май",
+    "мая",
+    "мае",
+    "июнь",
+    "июня",
+    "июне",
+    "июль",
+    "июля",
+    "июле",
+    "август",
+    "августа",
+    "августе",
+    "сентябрь",
+    "сентября",
+    "сентябре",
+    "октябрь",
+    "октября",
+    "октябре",
+    "ноябрь",
+    "ноября",
+    "ноябре",
+    "декабрь",
+    "декабря",
+    "декабре",
+    "сегодня",
+    "завтра",
+    "вчера",
+    "утро",
+    "утром",
+    "вечер",
+    "вечером",
+    "днем",
+    "ночь",
+    "ночью",
+    "неделе",
+    "неделю",
+    "выходные",
+    "выходных",
+    "выходной",
+    "месяце",
+    "году",
+    "час",
+    "часа",
+    "часов",
+    "минут",
+    "числа",
+    "число",
+]
+TIME_WORDS = frozenset(_TIME_FORMS)
+
+
+def _is_time(token: str) -> bool:
+    return token.isdigit() or token in TIME_WORDS or token in _NUMBERS
+
+
 def kind_and_item(text: str) -> tuple[str, list[str]]:
     """``location`` для «предмет + место» (замена старой записи о том же предмете), иначе ``fact``.
 
     У факта («у Полины день рождения 12 мая») предмет — вся фраза: все её слова ищутся наравне."""
     item, place = item_and_place(text)
-    if place:
+    # «В среду», «на 12 мая», «в пять часов» — время, а не место: такая фраза факт.
+    if place and not any(_is_time(token) for token in place[1:3]):
         return "location", item
     return "fact", words(text)
 
@@ -182,6 +281,21 @@ def kind_and_item(text: str) -> tuple[str, list[str]]:
 def numbers(tokens: list[str]) -> set[int]:
     """Числа в словах («два», «пяти») и цифрах: смысловая модель путает «два» и «три»."""
     return {int(t) if t.isdigit() else _NUMBERS[t] for t in tokens if t.isdigit() or t in _NUMBERS}
+
+
+def forget_candidates(query: str, records: list[Record]) -> list[Record]:
+    """Лучшие по словам записи: одна — её можно забыть, несколько — переспросить.
+
+    Только по словам, без смысловой оценки: удалять по похожести слишком рискованно."""
+    q = query_words(query)
+    if not q:
+        return []
+    asked = numbers(words(query))
+    scored = [(lexical(q, r), r) for r in records if asked <= numbers(words(r.content))]
+    best = max((s for s, _ in scored), default=0.0)
+    if best < (0.5 if len(q) > 1 else 0.99):
+        return []
+    return sorted((r for s, r in scored if s >= best - 1e-9), key=lambda r: -r.created)
 
 
 def pick(query: str, records: list[Record]) -> tuple[list[Record], int]:

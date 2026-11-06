@@ -191,9 +191,9 @@ async def things(
     person: str = Query(default="", max_length=64, alias="fromId"),
     service: ThingsService = Depends(get_things_service),
 ) -> ThingReply:
-    """Голос после «запомни» (``remember``) или «где лежит» (``find``): WAV в теле запроса."""
+    """Голос после «запомни» (remember), «вспомни» (find) или «забудь» (forget): WAV в теле."""
     response.headers["Cache-Control"] = "no-store"
-    if kind not in ("remember", "find"):
+    if kind not in ("remember", "find", "forget"):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "unknown kind")
     wav = await request.body()
     if len(wav) > _MAX_NOTE_BYTES:
@@ -202,4 +202,6 @@ async def things(
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "not a wav")
     if kind == "remember":
         return await run_in_threadpool(service.remember, wav, person, sender)
+    if kind == "forget":
+        return await run_in_threadpool(service.forget, wav)
     return await run_in_threadpool(service.find, wav)
