@@ -1,6 +1,11 @@
+import re
 import time
 from collections.abc import Callable
+from datetime import date, datetime
+from zoneinfo import ZoneInfo
 
+from app.config import get_settings
+from app.profiles import age_on, effective_zodiac_sign, zodiac_for_birth_date
 from app.repositories.devices import DeviceRepository
 from app.repositories.people import PeopleRepository
 from app.schemas import (
@@ -126,7 +131,43 @@ class PeopleService:
 
     def all(self) -> list[PersonView]:
         """Люди дома."""
-        return [view for status, view in self._repository.views() if status == "active"]
+        today = self.today()
+        return [
+            view.model_copy(
+                update={
+                    "age": age_on(view.birth_date, today) if view.birth_date else None,
+                    "derived_zodiac_sign": zodiac_for_birth_date(view.birth_date)
+                    if view.birth_date
+                    else "",
+                    "effective_zodiac_sign": effective_zodiac_sign(
+                        view.zodiac_sign, view.birth_date
+                    ),
+                }
+            )
+            for status, view in self._repository.views()
+            if status == "active"
+        ]
+
+    def today(self) -> date:
+        return datetime.fromtimestamp(
+            self._clock(),
+            ZoneInfo(get_settings().horoscope_timezone),
+        ).date()
+
+    def set_birth_date(self, person_id: str, value: str) -> None:
+        text = value.strip()
+        birth_date = None
+        if text:
+            try:
+                if not re.fullmatch(r"[0-9]{4}-[0-9]{2}-[0-9]{2}", text):
+                    raise ValueError("Expected ISO date")
+                birth_date = date.fromisoformat(text)
+            except ValueError:
+                raise PersonError("Укажите существующую дату рождения: день, месяц и год") from None
+            if birth_date > self.today():
+                raise PersonError("Дата рождения не может быть в будущем")
+        if not self._repository.set_birth_date(person_id, birth_date):
+            raise PersonError("Выберите человека дома")
 
     def incoming(self) -> list[PersonView]:
         """Люди, с которыми пришёл телефон из другой системы, — ждут решения."""

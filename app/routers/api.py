@@ -3,9 +3,11 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response,
 from app.dependencies import (
     get_character_service,
     get_device_service,
+    get_horoscope_service,
     get_notes_service,
     get_people_service,
 )
+from app.horoscope import HoroscopeReply, HoroscopeRequest
 from app.schemas import (
     AccessorySelection,
     CharacterAppearance,
@@ -19,10 +21,21 @@ from app.schemas import (
 )
 from app.services.characters import CharacterError, CharacterService
 from app.services.devices import DeviceService, UnknownDevice
+from app.services.horoscope import HoroscopeService
 from app.services.notes import NotesService
 from app.services.people import PeopleService, PersonError
 
 router = APIRouter(prefix="/api", tags=["api"])
+
+
+@router.post("/horoscope", response_model=HoroscopeReply)
+def daily_horoscope(
+    payload: HoroscopeRequest,
+    response: Response,
+    service: HoroscopeService = Depends(get_horoscope_service),
+) -> HoroscopeReply:
+    response.headers["Cache-Control"] = "no-store"
+    return service.today(payload.person)
 
 
 @router.get("/characters")

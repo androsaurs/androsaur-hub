@@ -3,6 +3,7 @@ from pathlib import Path
 from fastapi.templating import Jinja2Templates
 
 from app.config import get_settings
+from app.profiles import age_label
 
 TEMPLATES_DIR = Path(__file__).resolve().parent / "templates"
 
@@ -36,4 +37,5 @@ def _datetimeformat(value: float) -> str:
 templates.env.filters["ago"] = _ago
 templates.env.filters["datetimeformat"] = _datetimeformat
 templates.env.filters["temp"] = _temp
+templates.env.filters["age"] = age_label
 templates.env.globals["app_name"] = get_settings().app_name

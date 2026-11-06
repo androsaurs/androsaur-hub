@@ -9,6 +9,24 @@
 {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
 
 <ul class="integrations">
+  <li class="integration {% if horoscope_provider %}on{% endif %}">
+    <div class="setting-head">
+      <span class="setting-title">Гороскоп на сегодня</span>
+      <span class="badge {% if horoscope_provider %}on{% endif %}">{{ 'включено' if horoscope_provider else 'выключено' }}</span>
+    </div>
+    <p class="setting-desc">Ассистент узнаёт человека и читает гороскоп для его знака. Укажите знак в разделе «Люди». Источник можно заменить, сохранив знаки всех людей.</p>
+    <form class="setting-form" method="post" action="/integrations/horoscope/provider">
+      <label for="horoscope-provider">Источник</label>
+      <select id="horoscope-provider" name="provider">
+        <option value="">Выключен</option>
+        {% for code, title in horoscope_providers.items() %}
+        <option value="{{ code }}" {% if horoscope_provider == code %}selected{% endif %}>{{ title }}</option>
+        {% endfor %}
+      </select>
+      <button type="submit">Сохранить источник</button>
+    </form>
+    <p class="setting-desc">Europa Plus — без ключа. Сохранённый гороскоп доступен до конца дня, даже если пропала связь с хабом.</p>
+  </li>
   {% for i in integrations %}
   <li class="integration {% if i.enabled %}on{% endif %}">
     <div class="setting-head">

@@ -1,5 +1,6 @@
 import json
 import sqlite3
+from datetime import date
 
 from app.db.database import get_connection
 from app.schemas import (
@@ -188,7 +189,7 @@ class PeopleRepository:
         with get_connection() as conn:
             rows = conn.execute(
                 """
-                SELECT h.id, h.name, h.status, h.roles,
+                SELECT h.id, h.name, h.status, h.roles, h.zodiac_sign, h.birth_date,
                        (SELECT COUNT(*) FROM house_vectors v WHERE v.person_id = h.id) AS samples,
                        COALESCE(o.name, '') AS origin
                 FROM house_people h LEFT JOIN devices o ON o.id = h.origin_device
@@ -214,10 +215,22 @@ class PeopleRepository:
                     devices=devices.get(row["id"], []),
                     origin=row["origin"],
                     roles=json.loads(row["roles"] or "[]"),
+                    zodiac_sign=row["zodiac_sign"],
+                    birth_date=date.fromisoformat(row["birth_date"]) if row["birth_date"] else None,
                 ),
             )
             for row in rows
         ]
+
+    def set_birth_date(self, person_id: str, birth_date: date | None) -> bool:
+        with get_connection() as conn:
+            return (
+                conn.execute(
+                    "UPDATE house_people SET birth_date = ? WHERE id = ? AND status = 'active'",
+                    (birth_date.isoformat() if birth_date else None, person_id),
+                ).rowcount
+                == 1
+            )
 
     def set_roles(self, person_id: str, roles: list[str]) -> None:
         with get_connection() as conn:

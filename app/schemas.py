@@ -1,4 +1,5 @@
 import math
+from datetime import date
 from typing import Literal
 
 from pydantic import BaseModel, Field, StrictInt, field_validator, model_validator
@@ -273,6 +274,11 @@ class PersonView(BaseModel):
     devices: list[str]
     origin: str = ""
     roles: list[str] = Field(default_factory=list)
+    zodiac_sign: str = ""
+    birth_date: date | None = None
+    age: int | None = None
+    derived_zodiac_sign: str = ""
+    effective_zodiac_sign: str = ""
 
 
 class CommandView(BaseModel):

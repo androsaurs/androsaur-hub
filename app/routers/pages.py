@@ -9,14 +9,17 @@ from app.clients.weather import WeatherError
 from app.dependencies import (
     get_character_service,
     get_device_service,
+    get_horoscope_service,
     get_integrations_service,
     get_notes_service,
     get_people_service,
     get_settings_service,
     get_weather_service,
 )
+from app.horoscope import SIGNS, HoroscopeError
 from app.services.characters import CharacterError, CharacterService
 from app.services.devices import DeviceService
+from app.services.horoscope import HoroscopeService
 from app.services.integrations import IntegrationError, IntegrationsService
 from app.services.notes import NotesService
 from app.services.people import ERRORS, PeopleService, PersonError
@@ -153,6 +156,8 @@ def people_page(
             "page": "people",
             "device_count": len(devices.all()),
             "people": people.all(),
+            "zodiac_signs": SIGNS,
+            "profile_today": people.today(),
             "incoming": people.incoming(),
             "commands": people.commands(),
             "errors": ERRORS,
@@ -169,6 +174,33 @@ def rename_person(
 ) -> RedirectResponse:
     try:
         people.rename(person, to)
+    except PersonError as e:
+        return _back(str(e), "/people")
+    return _back(path="/people")
+
+
+@router.post("/people/zodiac")
+def set_zodiac_sign(
+    person: str = Form(...),
+    sign: str = Form(""),
+    horoscope: HoroscopeService = Depends(get_horoscope_service),
+) -> RedirectResponse:
+    try:
+        horoscope.set_sign(person, sign)
+    except HoroscopeError as e:
+        return _back(str(e), "/people")
+    return _back(path="/people")
+
+
+@router.post("/people/birth-date")
+def set_person_birth_date(
+    person: str = Form(...),
+    birth_date: str = Form(""),
+    clear: bool = Form(False),
+    people: PeopleService = Depends(get_people_service),
+) -> RedirectResponse:
+    try:
+        people.set_birth_date(person, "" if clear else birth_date)
     except PersonError as e:
         return _back(str(e), "/people")
     return _back(path="/people")
@@ -249,6 +281,7 @@ def integrations_page(
     request: Request,
     error: str | None = None,
     integrations: IntegrationsService = Depends(get_integrations_service),
+    horoscope: HoroscopeService = Depends(get_horoscope_service),
 ) -> HTMLResponse:
     return templates.TemplateResponse(
         request,
@@ -256,6 +289,8 @@ def integrations_page(
         {
             "page": "integrations",
             "integrations": integrations.all(),
+            "horoscope_providers": horoscope.options(),
+            "horoscope_provider": horoscope.provider(),
             "now": time.time(),
             "error": error,
         },
@@ -266,6 +301,18 @@ def _integration(action: Callable[[], object]) -> RedirectResponse:
     try:
         action()
     except IntegrationError as e:
+        return _back(str(e), "/integrations")
+    return _back(path="/integrations")
+
+
+@router.post("/integrations/horoscope/provider")
+def set_horoscope_provider(
+    provider: str = Form(""),
+    horoscope: HoroscopeService = Depends(get_horoscope_service),
+) -> RedirectResponse:
+    try:
+        horoscope.set_provider(provider)
+    except HoroscopeError as e:
         return _back(str(e), "/integrations")
     return _back(path="/integrations")
 

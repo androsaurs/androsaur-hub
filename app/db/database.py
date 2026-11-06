@@ -20,6 +20,19 @@ CREATE TABLE IF NOT EXISTS character_accessories (
 _SCHEMA = (
     _ACCESSORY_TABLE
     + """
+CREATE TABLE IF NOT EXISTS horoscope_settings (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    provider TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS horoscope_cache (
+    provider TEXT NOT NULL,
+    day TEXT NOT NULL,
+    forecasts TEXT,
+    fetched_at REAL NOT NULL DEFAULT 0,
+    retry_after REAL NOT NULL DEFAULT 0,
+    PRIMARY KEY(provider, day)
+);
+
 -- Personal choices follow permanent people IDs, never device IDs.
 CREATE TABLE IF NOT EXISTS person_characters (
     person_id TEXT PRIMARY KEY REFERENCES house_people(id) ON DELETE CASCADE,
@@ -96,7 +109,9 @@ CREATE TABLE IF NOT EXISTS house_people (
     origin_device TEXT NOT NULL,
     created_at    REAL NOT NULL,
     -- Роли: как ещё называют человека («папа», «мама») — по ним тоже оставляют записки.
-    roles         TEXT NOT NULL DEFAULT '[]'
+    roles         TEXT NOT NULL DEFAULT '[]',
+    zodiac_sign   TEXT NOT NULL DEFAULT '',
+    birth_date    TEXT
 );
 
 -- Наборы чисел лица (биометрия семьи): только в этой базе, не в логах и не в админке.
@@ -250,6 +265,10 @@ def init_db() -> None:
         house = {row["name"] for row in conn.execute("PRAGMA table_info(house_people)")}
         if house and "roles" not in house:
             conn.execute("ALTER TABLE house_people ADD COLUMN roles TEXT NOT NULL DEFAULT '[]'")
+        if house and "zodiac_sign" not in house:
+            conn.execute("ALTER TABLE house_people ADD COLUMN zodiac_sign TEXT NOT NULL DEFAULT ''")
+        if house and "birth_date" not in house:
+            conn.execute("ALTER TABLE house_people ADD COLUMN birth_date TEXT")
         weather = {row["name"] for row in conn.execute("PRAGMA table_info(weather)")}
         if weather and "hours" not in weather:
             conn.execute("ALTER TABLE weather ADD COLUMN hours TEXT")

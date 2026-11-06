@@ -1,5 +1,6 @@
 from app.services.characters import CharacterService
 from app.services.devices import DeviceService
+from app.services.horoscope import HoroscopeService
 from app.services.integrations import IntegrationsService
 from app.services.notes import NotesService
 from app.services.people import PeopleService
@@ -9,6 +10,10 @@ from app.services.weather import WeatherService
 
 def get_character_service() -> CharacterService:
     return CharacterService()
+
+
+def get_horoscope_service() -> HoroscopeService:
+    return HoroscopeService()
 
 
 def get_device_service() -> DeviceService:

@@ -30,7 +30,7 @@ body {
 }
 
 .topbar { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
-.nav { display: flex; gap: 16px; }
+.nav { display: flex; gap: 16px; flex-wrap: wrap; }
 .nav a { color: #c7cbe0; text-decoration: none; font-size: .95rem; }
 .nav a[aria-current="page"] { color: #fff; border-bottom: 2px solid var(--accent); }
 
@@ -43,6 +43,7 @@ body {
 }
 .person-name { font-weight: 600; font-size: 1.05rem; }
 .person-meta { color: var(--muted); font-size: .85rem; }
+.profile-hint { color: var(--muted); font-size: .85rem; margin-top: 4px; }
 .rename-form { display: flex; align-items: center; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
 .rename-form input {
   flex: 1 1 160px;
@@ -111,12 +112,16 @@ h2 { font-size: 1.1rem; margin: 32px 0 12px; }
 .setting-desc { margin-top: 2px; }
 
 .setting-form { display: flex; align-items: center; gap: 8px; margin: 10px 0 6px; flex-wrap: wrap; }
-.setting-form input {
+.setting-form input, .setting-form select {
   width: 120px;
   padding: 8px 10px;
   border: 1px solid var(--border);
   border-radius: 8px;
   font-size: 1rem;
+}
+.setting-form select { width: auto; min-height: 44px; background: #fff; color: var(--fg); }
+.setting-form select:focus-visible, .rename-form select:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px;
 }
 .setting-form button {
   padding: 8px 16px;

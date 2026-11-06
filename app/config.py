@@ -28,6 +28,8 @@ class Settings(BaseSettings):
     # Звук голосовых записок (для расшифровки), вне git; и сколько дней хранить записки.
     notes_dir: Path = Path("data/notes")
     notes_keep_days: int = 14
+    # A 'today' forecast is bounded by this timezone, regardless of server OS timezone.
+    horoscope_timezone: str = "Europe/Moscow"
 
 
 @lru_cache

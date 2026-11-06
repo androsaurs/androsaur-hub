@@ -5,7 +5,7 @@
 {% block content %}
 <h1>Люди</h1>
 {% set several = device_count > 1 %}
-<p class="hint">Кого узнают телефоны дома. Новый телефон получает всех сразу и узнаёт их без обучения. Роли — как ещё называют человека («папа», «мама»): «передай папе» тоже дойдёт до него. Переименование меняет только имя: человек остаётся тем же, и записки, оставленные ему раньше, по-прежнему дойдут до него. Здесь видны только имена и число наборов; сами наборы чисел лица хранятся в хабе и на телефонах, фотографий нет нигде.</p>
+<p class="hint">Кого узнают телефоны дома. Новый телефон получает всех сразу и узнаёт их без обучения. Роли — как ещё называют человека («папа», «мама»): «передай папе» тоже дойдёт до него. Переименование меняет только имя: человек остаётся тем же, и записки, оставленные ему раньше, по-прежнему дойдут до него. Дата рождения необязательна и остаётся в хабе. Наборы чисел лица хранятся в хабе и на телефонах, фотографий нет нигде.</p>
 
 {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
 
@@ -41,6 +41,33 @@
     <div class="person-name">{{ p.name }}</div>
     <div class="person-meta">Наборов: {{ p.samples }}{% if several %} · телефоны: {{ p.devices | join(", ") if p.devices else "пока ни одного" }}{% endif %}</div>
     <a href="/characters?person={{ p.id | urlencode }}">Выбрать моего персонажа →</a>
+    <form class="rename-form" method="post" action="/people/birth-date">
+      <input type="hidden" name="person" value="{{ p.id }}">
+      <label for="birth-date-{{ p.id }}">Дата рождения</label>
+      <input id="birth-date-{{ p.id }}" type="date" name="birth_date" value="{{ p.birth_date.isoformat() if p.birth_date else '' }}" max="{{ profile_today.isoformat() }}">
+      <button type="submit" class="secondary">Сохранить дату</button>
+      {% if p.birth_date %}<button type="submit" name="clear" value="1" formnovalidate class="link">Удалить дату</button>{% endif %}
+    </form>
+    {% if p.birth_date %}
+    <p class="person-meta">{% if p.age is not none %}Возраст: {{ p.age | age }} · {% endif %}Знак по дате: {{ zodiac_signs[p.derived_zodiac_sign] }}</p>
+    {% endif %}
+    <p class="profile-hint">Дату указывать необязательно. Для гороскопа достаточно выбрать знак.</p>
+    <form class="rename-form" method="post" action="/people/zodiac">
+      <input type="hidden" name="person" value="{{ p.id }}">
+      <label for="zodiac-{{ p.id }}">Знак зодиака</label>
+      <select id="zodiac-{{ p.id }}" name="sign">
+        <option value="">{{ 'По дате рождения' if p.birth_date else 'Не указан' }}</option>
+        {% for code, title in zodiac_signs.items() %}
+        <option value="{{ code }}" {% if p.zodiac_sign == code %}selected{% endif %}>{{ title }}</option>
+        {% endfor %}
+      </select>
+      <button type="submit" class="secondary">Сохранить знак</button>
+    </form>
+    {% if p.effective_zodiac_sign %}
+    <p class="person-meta">Для гороскопа: {{ zodiac_signs[p.effective_zodiac_sign] }} · {{ 'выбран вручную' if p.zodiac_sign else 'по дате рождения' }}</p>
+    {% endif %}
+    {% if p.birth_date %}<p class="profile-hint">Выбранный вручную знак имеет приоритет. Для автоматического выбора оставьте «По дате рождения».</p>{% endif %}
+    <p class="hint">Скажите «Зюзя», затем «Расскажи мой гороскоп». Знак следует за человеком на всех телефонах.</p>
     <form class="rename-form" method="post" action="/people/rename">
       <input type="hidden" name="person" value="{{ p.id }}">
       <input type="text" name="to" required maxlength="40" placeholder="Новое имя" aria-label="Новое имя для {{ p.name }}">
