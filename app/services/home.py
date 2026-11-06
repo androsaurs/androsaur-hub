@@ -2,6 +2,7 @@ import logging
 import re
 import time
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from typing import Protocol
 
 from app.clients.home_assistant import HomeAssistantClient, HomeError, Speaker
@@ -193,21 +194,39 @@ class HomeService:
             return AnnounceReply(status="error")
         text = " ".join(result.text.split())[:_MAX_TEXT]
         if not text or result.confidence < min_confidence or result.speech < 50:
-            log.info("announce unclear: chars=%d confidence=%.2f speech=%s", len(text), result.confidence, result.speech)
+            log.info(
+                "announce unclear: chars=%d confidence=%.2f speech=%s",
+                len(text),
+                result.confidence,
+                result.speech,
+            )
             return AnnounceReply(status="unclear", text=text or None)
         sender = self._sender(person_id, label)
         phrase = f"{sender} говорит: {text}" if sender else f"Сообщение: {text}"
-        targets = [r.entity_id for r in self._repository.rooms()] if room is None else [room.entity_id]
+        targets = (
+            [r.entity_id for r in self._repository.rooms()] if room is None else [room.entity_id]
+        )
         if not targets:
             return AnnounceReply(status="unknown_room")
-        failed = 0
-        for entity_id in targets:
+        # All at once: a speaker that does not answer must not make the others wait out its timeout.
+
+        def speak(entity_id: str) -> bool:
             try:
                 client.speak(entity_id, phrase)
             except HomeError as e:
-                failed += 1
                 log.warning("announce speak failed: %s", e)
+                return False
+            return True
+
+        with ThreadPoolExecutor(max_workers=len(targets)) as pool:
+            failed = list(pool.map(speak, targets)).count(False)
         if failed == len(targets):
             return AnnounceReply(status="error", text=text)
-        log.info("announce spoken: room=%s speakers=%d failed=%d chars=%d", room_id, len(targets), failed, len(text))
+        log.info(
+            "announce spoken: room=%s speakers=%d failed=%d chars=%d",
+            room_id,
+            len(targets),
+            failed,
+            len(text),
+        )
         return AnnounceReply(status="spoken", text=text)
