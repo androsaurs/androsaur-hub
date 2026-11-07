@@ -223,6 +223,6 @@ def test_the_weather_page_for_the_phone_has_no_menu(hub):
     register(hub)
     hub.post("/weather/place", data={"name": "Петербург"})
     page = hub.get("/weather", params={"embed": 1}).text
-    assert 'class="topbar"' not in page and "container embed" in page
+    assert 'class="sidebar"' not in page and "content embed" in page
     assert '<body class="embed">' in page and "Таблица по часам" not in page
-    assert 'class="topbar"' in hub.get("/weather").text
+    assert 'class="sidebar"' in hub.get("/weather").text

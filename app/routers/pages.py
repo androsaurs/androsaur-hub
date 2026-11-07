@@ -1,3 +1,4 @@
+import json
 import time
 from collections.abc import Callable
 from urllib.parse import quote
@@ -16,6 +17,7 @@ from app.dependencies import (
     get_people_service,
     get_settings_service,
     get_things_service,
+    get_trace_service,
     get_weather_service,
 )
 from app.horoscope import SIGNS, HoroscopeError
@@ -28,8 +30,10 @@ from app.services.notes import NotesService
 from app.services.people import ERRORS, PeopleService, PersonError
 from app.services.settings import SettingError, SettingsService
 from app.services.things import ThingsService, ThingsSettingError
+from app.services.trace import TraceService
 from app.services.weather import WeatherService, describe
 from app.templating import templates
+from app.trace import STAGES
 
 router = APIRouter(tags=["pages"])
 
@@ -564,3 +568,63 @@ def delete_thing(
     content_hash: str, things: ThingsService = Depends(get_things_service)
 ) -> RedirectResponse:
     return _things(lambda: things.delete(content_hash))
+
+
+_TRACE_DAYS = (1, 7, 14)
+
+
+@router.get("/trace", response_class=HTMLResponse)
+def trace_page(
+    request: Request,
+    days: int = 7,
+    trace: TraceService = Depends(get_trace_service),
+) -> HTMLResponse:
+    days = days if days in _TRACE_DAYS else 7
+    return templates.TemplateResponse(
+        request,
+        "trace.html",
+        {
+            "page": "trace",
+            "report": trace.report(days),
+            "days_options": _TRACE_DAYS,
+            "stages": {s.key: s.label for s in STAGES},
+        },
+    )
+
+
+@router.get("/trace/events.json")
+def trace_events(days: int = 7, trace: TraceService = Depends(get_trace_service)) -> Response:
+    """Сырые события для своего анализа (pandas, jq)."""
+    days = days if days in _TRACE_DAYS else 7
+    body = json.dumps(trace.events(days), ensure_ascii=False)
+    return Response(body, media_type="application/json", headers={"Cache-Control": "no-store"})
+
+
+@router.get("/trace/runs.json")
+def trace_runs(days: int = 7, trace: TraceService = Depends(get_trace_service)) -> Response:
+    """Прогоны с этапами в миллисекундах: готовая таблица для анализа."""
+    days = days if days in _TRACE_DAYS else 7
+    rows = [
+        {
+            "run": r.id,
+            "start_ms": r.start_ms,
+            "intent": r.intent,
+            "outcome": r.outcome,
+            "fail_stage": r.fail_stage,
+            "fail_reason": r.fail_reason,
+            "slow": r.slow,
+            "stages_ms": r.stages,
+        }
+        for r in trace.report(days).runs
+    ]
+    return Response(
+        json.dumps(rows, ensure_ascii=False),
+        media_type="application/json",
+        headers={"Cache-Control": "no-store"},
+    )
+
+
+@router.post("/trace/clear")
+def trace_clear(trace: TraceService = Depends(get_trace_service)) -> RedirectResponse:
+    trace.clear()
+    return RedirectResponse("/trace", status_code=303)

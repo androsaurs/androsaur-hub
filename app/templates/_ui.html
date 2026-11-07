@@ -1,0 +1,7 @@
+{# Общие части страниц админки. Подключение: {% from "_ui.html" import page_header %} #}
+{% macro page_header(title) %}
+<header class="page-header">
+  <h1>{{ title }}</h1>
+  {% if caller %}<p class="lead">{{ caller() }}</p>{% endif %}
+</header>
+{% endmacro %}

@@ -1,14 +1,14 @@
 {% extends "base.html" %}
+{% from "_ui.html" import page_header %}
 
 {% block title %}Умный дом · {{ app_name }}{% endblock %}
 
 {% block content %}
-<h1>Умный дом</h1>
-<p class="hint">Home Assistant дома. Пока в нём одна функция: «Зюзя, передай в детскую» — сказанное после этого произносится на колонке Яндекса в этой комнате («Папа говорит: …»). Нужна интеграция Groq: сообщение расшифровывается там и нигде не хранится. Без хаба или Home Assistant телефон отвечает «Дом недоступен».</p>
+{% call page_header("Умный дом") %}Home Assistant дома. Пока в нём одна функция: «Зюзя, передай в детскую» — сказанное после этого произносится на колонке Яндекса в этой комнате («Папа говорит: …»). Нужна интеграция Groq: сообщение расшифровывается там и нигде не хранится. Без хаба или Home Assistant телефон отвечает «Дом недоступен».{% endcall %}
 
 {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
 
-<ul class="integrations">
+<ul class="integrations one-col">
   <li class="integration {% if key_hint %}on{% endif %}">
     <div class="setting-head">
       <span class="setting-title">Home Assistant</span>
