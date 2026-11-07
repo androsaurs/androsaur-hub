@@ -613,6 +613,7 @@ def trace_runs(days: int = 7, trace: TraceService = Depends(get_trace_service)) 
             "fail_stage": r.fail_stage,
             "fail_reason": r.fail_reason,
             "slow": r.slow,
+            "heard": r.heard,
             "stages_ms": r.stages,
         }
         for r in trace.report(days).runs

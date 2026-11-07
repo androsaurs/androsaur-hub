@@ -66,7 +66,7 @@
         <tr{% if r.outcome in ('failed', 'unfinished') %} class="failed"{% endif %}>
           <td>{{ (r.start_ms / 1000) | int | datetimeformat }}</td>
           <td>{{ r.intent }}</td>
-          <td>{% if r.outcome == 'ok' %}удался{% elif r.outcome == 'failed' %}сбой: {{ r.fail_stage }} / {{ r.fail_reason }}{% elif r.outcome == 'running' %}идёт{% else %}оборван{% endif %}</td>
+          <td>{% if r.outcome == 'ok' %}удался{% elif r.outcome == 'failed' %}сбой: {{ r.fail_stage }} / {{ r.fail_reason }}{% if r.heard %} · услышано: «{{ r.heard }}»{% endif %}{% elif r.outcome == 'running' %}идёт{% else %}оборван{% endif %}</td>
           <td class="num">{% if r.total_ms is not none %}{{ '%.1f' | format(r.total_ms / 1000) }}{% else %}—{% endif %}</td>
           <td>{% for k in r.slow %}{{ stages[k] }} ({{ '%.1f' | format(r.stages[k] / 1000) }}){% if not loop.last %}; {% endif %}{% endfor %}</td>
         </tr>

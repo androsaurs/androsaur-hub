@@ -27,6 +27,8 @@ OK_STATUSES = frozenset(
         "ambiguous",
     }
 )
+# Команды без голосового ответа: готовы, когда приложение приняло команду («стоп» глушит звук).
+SILENT_INTENTS = frozenset({"stop"})
 RUNNING_MS = 90_000  # прогон без конца моложе этого считается идущим, старше — оборванным
 
 
@@ -187,6 +189,7 @@ class Run:
     fail_reason: str = ""
     stages: dict[str, int] = field(default_factory=dict)
     slow: list[str] = field(default_factory=list)
+    heard: str = ""  # что услышал распознаватель, только у неудачного окна команд
 
     @property
     def total_ms(self) -> int | None:
@@ -352,6 +355,14 @@ def build_runs(events: list[Event], now_ms: int) -> list[Run]:
                 understood = str((e.get("data") or {}).get("understood", ""))
                 if understood and understood != "none":
                     run.intent = understood.split(":")[0]
+        words = []
+        for e in phone:
+            d = e.get("data") or {}
+            if e["stage"] == "command_heard" and d.get("understood") == "none":
+                words.append(str(d.get("text", "")))
+            elif e["stage"] == "command_timeout":
+                words.append(str(d.get("lastPartial", "")))
+        run.heard = "; ".join(w for w in dict.fromkeys(words) if w)
         run.stages = _stages(phone, hub)
         failure = _failure(phone)
         stages = {e["stage"] for e in phone}
@@ -360,6 +371,9 @@ def build_runs(events: list[Event], now_ms: int) -> list[Run]:
             run.fail_stage, run.fail_reason = failure
         elif "total" in run.stages or "note_recorded" in stages:
             run.outcome = "ok"
+        elif run.intent in SILENT_INTENTS and "command_taken" in stages:
+            run.outcome = "ok"
+            run.stages["total"] = max(0, int(phone[-1]["ts"]) - int(phone[0]["ts"]))
         elif now_ms - int(phone[-1]["ts"]) < RUNNING_MS:
             run.outcome = "running"
         else:

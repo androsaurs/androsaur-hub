@@ -190,3 +190,37 @@ def test_a_service_restart_after_the_run_does_not_stretch_it():
     ]  # fmt: skip
     (run,) = build_runs(events, NOW)
     assert run.stages["total"] == 15490
+
+
+def test_words_are_kept_only_for_a_failed_command_window(hub):
+    from app.services.trace import TraceService
+
+    service = TraceService()
+    service.add(
+        "phone",
+        [
+            ev("r9", 0, "audio", "wake_word"),
+            ev("r9", 40, "audio", "command_listening"),
+            ev("r9", 2000, "audio", "command_heard", understood="none", text="включи свет"),
+            ev("r9", 7000, "audio", "command_timeout", utterances="1", lastPartial="хм"),
+            ev("r8", 0, "audio", "command_heard", understood="find", text="где ключи"),
+        ],
+    )  # fmt: skip
+    events = service.events(1)
+    heard = [e["data"].get("text") for e in events if e["stage"] == "command_heard"]
+    assert "включи свет" in heard and "где ключи" not in heard
+    (failed,) = [r for r in build_runs(events, NOW) if r.id == "r9"]
+    assert failed.heard == "включи свет; хм"
+
+
+def test_stop_has_no_spoken_answer_and_is_still_a_success():
+    events = [
+        ev("r7", 0, "audio", "wake_word"),
+        ev("r7", 40, "audio", "command_listening"),
+        ev("r7", 2100, "audio", "command_heard", understood="stop"),
+        ev("r7", 2102, "audio", "command", intent="stop"),
+        ev("r7", 2400, "app", "command_taken", intent="stop"),
+    ]  # fmt: skip
+    (run,) = build_runs(events, NOW)
+    assert (run.intent, run.outcome) == ("stop", "ok")
+    assert run.stages["total"] == 2400

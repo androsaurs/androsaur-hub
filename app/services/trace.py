@@ -28,6 +28,17 @@ ALLOWED = frozenset(
 )  # fmt: skip
 
 
+WORD_KEYS = frozenset({"text", "lastPartial"})
+WORDS_MAX = 80
+
+
+def words_allowed(stage: str, data: dict[str, Any]) -> bool:
+    """Слова распознавания хранятся только у неудачного окна команд: непонятая фраза или таймаут."""
+    return stage == "command_timeout" or (
+        stage == "command_heard" and str(data.get("understood", "")) == "none"
+    )
+
+
 @dataclass
 class Report:
     days: int
@@ -62,6 +73,9 @@ class TraceService:
                 for k, v in (e.get("data") or {}).items()
                 if k in ALLOWED
             }
+            raw = e.get("data") or {}
+            if words_allowed(stage, raw):
+                data.update({k: str(raw[k])[:WORDS_MAX] for k in WORD_KEYS if raw.get(k)})
             clean.append(
                 {
                     "run": run,
