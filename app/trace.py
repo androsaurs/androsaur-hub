@@ -67,6 +67,24 @@ STAGES: tuple[StageSpec, ...] = (
         "Запись долго ждёт конца фразы: паузу можно укоротить, но фраза с паузой обрежется.",
     ),
     StageSpec(
+        "record_wait",
+        "Запись: ожидание начала речи",
+        2500,
+        "Человек долго не начинает после подсказки: она длинная или не слышна, либо голос тихий.",
+    ),
+    StageSpec(
+        "record_speech",
+        "Запись: сама речь",
+        6000,
+        "Долгая фраза человека; это не сбой системы.",
+    ),
+    StageSpec(
+        "record_pause",
+        "Запись: пауза до конца",
+        1800,
+        "Конец записи растягивают звуки комнаты: смотрите шум и порог в событии record_gate.",
+    ),
+    StageSpec(
         "handoff",
         "Передача команды в приложение",
         800,
@@ -258,6 +276,20 @@ def _stages(phone: list[Event], hub: list[Event]) -> dict[str, int]:
         elapsed = _span(rec_start, rec_end)
         if shot is not None and elapsed is not None:
             put("record_tail", max(0, elapsed - shot))
+    gate = _first(phone, "audio", "record_gate")
+    if gate:
+        g = gate.get("data") or {}
+        g_start, g_end, g_rec = (
+            _int(g.get("speechStartMs")),
+            _int(g.get("speechEndMs")),
+            _int(g.get("recordedMs")),
+        )
+        if g_start is not None and g_start >= 0:
+            put("record_wait", g_start)
+            if g_end is not None and g_end >= g_start:
+                put("record_speech", g_end - g_start)
+                if g_rec is not None and g_rec >= g_end:
+                    put("record_pause", g_rec - g_end)
     put("handoff", _span(command, taken))
     put("fetch", _span(taken, fetched))
     put("hub", _span(fetched or taken, replied))
@@ -303,6 +335,12 @@ def build_runs(events: list[Event], now_ms: int) -> list[Run]:
     for run_id, items in by_run.items():
         phone = sorted((e for e in items if e["src"] != "hub"), key=lambda e: e["ts"])
         hub = [e for e in items if e["src"] == "hub"]
+        # Перезапуск служб после начала прогона к нему не относится.
+        restart = next(
+            (i for i, e in enumerate(phone) if i > 0 and e["stage"] == "service_started"), None
+        )
+        if restart is not None:
+            phone = phone[:restart]
         if not phone:
             continue
         run = Run(run_id, int(phone[0]["ts"]))

@@ -169,3 +169,24 @@ def test_page_exports_and_clear(hub):
     assert hub.get("/trace/runs.json").json() == []  # старше суток по часам хаба
     assert hub.post("/trace/clear", follow_redirects=False).status_code == 303
     assert hub.get("/trace/events.json?days=14").json() == []
+
+
+def test_record_gate_splits_the_recording_into_wait_speech_and_pause():
+    events = good_run()
+    events.append(ev("r1", 9120, "audio", "record_gate", speechStartMs=4000, speechEndMs=5800,
+                     recordedMs=7300, floorDbfs=-70, thresholdDbfs=-58, speechMs=900))  # fmt: skip
+    (run,) = build_runs(events, NOW)
+    assert run.stages["record_wait"] == 4000
+    assert run.stages["record_speech"] == 1800
+    assert run.stages["record_pause"] == 1500
+    assert "record_wait" in run.slow and "record_pause" not in run.slow
+
+
+def test_a_service_restart_after_the_run_does_not_stretch_it():
+    events = good_run() + [
+        ev("r1", 140_000, "audio", "service_started"),
+        ev("r1", 170_000, "audio", "speech_started"),
+        ev("r1", 171_000, "audio", "speech_finished", firstAudioMs=5, audioMs=900),
+    ]  # fmt: skip
+    (run,) = build_runs(events, NOW)
+    assert run.stages["total"] == 15490

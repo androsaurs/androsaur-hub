@@ -23,7 +23,7 @@ ALLOWED = frozenset(
         "firstAudioMs", "audioMs", "synthMs", "loadMs", "durationMs", "chars", "engine",
         "levelDbfs",
         "end", "status", "code", "bytes", "total_ms", "transcribe_ms", "records_ms", "scores_ms",
-        "wav_bytes", "kind",
+        "wav_bytes", "kind", "floorDbfs", "speechMs", "recordedMs", "speechStartMs", "speechEndMs",
     }
 )  # fmt: skip
 
