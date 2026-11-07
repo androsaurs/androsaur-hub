@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% from "_ui.html" import page_header %}
+
+{% block title %}Профилирование · {{ app_name }}{% endblock %}
+
+{% block content %}
+{% call page_header("Профилирование") %}Каждый сценарий — от слова пробуждения до конца ответа — записывается по этапам: звук, приложение, хаб. Здесь видно, какие сценарии не удались и на каком этапе, и где время уходит впустую. Хранятся только названия этапов, длительности и коды причин, слов семьи нет. Данные копятся 14 суток. Для своего анализа: <a href="/trace/runs.json?days={{ report.days }}">прогоны</a> (JSON, этапы в мс) и <a href="/trace/events.json?days={{ report.days }}">сырые события</a>.{% endcall %}
+
+<nav class="tabs" aria-label="Период">
+  {% for d in days_options %}<a href="/trace?days={{ d }}" {% if d == report.days %}aria-current="page"{% endif %}>{{ 'Сутки' if d == 1 else d ~ ' дней' }}</a>{% endfor %}
+</nav>
+
+{% if not report.runs %}
+<p class="setting-desc">Прогонов пока нет. Скажите «Зюзя, вспомни» и вернитесь сюда: телефон присылает события раз в несколько секунд.</p>
+{% else %}
+<ul class="integrations one-col">
+  <li class="integration">
+    <div class="setting-head"><span class="setting-title">Итог</span></div>
+    <p class="setting-desc">Прогонов: {{ report.runs | length }} · удались: {{ report.counts.ok }} · не удались: {{ report.counts.failed }} · оборваны: {{ report.counts.unfinished }}{% if report.counts.running %} · идут: {{ report.counts.running }}{% endif %}</p>
+  </li>
+
+  {% if report.advice %}
+  <li class="integration">
+    <div class="setting-head"><span class="setting-title">Что улучшить</span><span class="badge">{{ report.advice | length }}</span></div>
+    <ol class="advice">{% for line in report.advice %}<li class="setting-desc">{{ line }}</li>{% endfor %}</ol>
+  </li>
+  {% endif %}
+
+  {% if report.failures %}
+  <li class="integration">
+    <div class="setting-head"><span class="setting-title">Неудачные сценарии</span><span class="badge">{{ report.failures | length }}</span></div>
+    <div class="table-scroll"><table class="trace-table">
+      <thead><tr><th>Сценарий</th><th>Этап</th><th>Причина</th><th class="num">Раз</th><th>Что делать</th></tr></thead>
+      <tbody>
+      {% for f in report.failures %}
+        <tr><td>{{ f.intent }}</td><td>{{ f.stage }}</td><td>{{ f.reason }}</td><td class="num">{{ f.count }}</td><td>{{ f.hint }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table></div>
+  </li>
+  {% endif %}
+
+  <li class="integration">
+    <div class="setting-head"><span class="setting-title">Этапы: сколько длятся</span></div>
+    <p class="setting-desc">Медиана, 95-й процентиль и худший случай в секундах. Красным — медиана выше бюджета этапа.</p>
+    <div class="table-scroll"><table class="trace-table">
+      <thead><tr><th>Этап</th><th class="num">Замеров</th><th class="num">Медиана</th><th class="num">p95</th><th class="num">Худший</th><th class="num">Бюджет</th><th class="num">Медленно</th></tr></thead>
+      <tbody>
+      {% for s in report.stats %}
+        <tr{% if s.slow %} class="failed"{% endif %}>
+          <td>{{ s.spec.label }}</td><td class="num">{{ s.n }}</td>
+          <td class="num">{{ '%.2f' | format(s.p50 / 1000) }}</td><td class="num">{{ '%.2f' | format(s.p95 / 1000) }}</td><td class="num">{{ '%.2f' | format(s.worst / 1000) }}</td>
+          <td class="num">{{ '%.1f' | format(s.spec.budget_ms / 1000) }}</td><td class="num">{{ s.slow_n }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table></div>
+  </li>
+
+  <li class="integration">
+    <div class="setting-head"><span class="setting-title">Последние прогоны</span></div>
+    <div class="table-scroll"><table class="trace-table">
+      <thead><tr><th>Когда</th><th>Сценарий</th><th>Итог</th><th class="num">Всего, с</th><th>Медленные этапы</th></tr></thead>
+      <tbody>
+      {% for r in report.runs[:50] %}
+        <tr{% if r.outcome in ('failed', 'unfinished') %} class="failed"{% endif %}>
+          <td>{{ (r.start_ms / 1000) | int | datetimeformat }}</td>
+          <td>{{ r.intent }}</td>
+          <td>{% if r.outcome == 'ok' %}удался{% elif r.outcome == 'failed' %}сбой: {{ r.fail_stage }} / {{ r.fail_reason }}{% elif r.outcome == 'running' %}идёт{% else %}оборван{% endif %}</td>
+          <td class="num">{% if r.total_ms is not none %}{{ '%.1f' | format(r.total_ms / 1000) }}{% else %}—{% endif %}</td>
+          <td>{% for k in r.slow %}{{ stages[k] }} ({{ '%.1f' | format(r.stages[k] / 1000) }}){% if not loop.last %}; {% endif %}{% endfor %}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table></div>
+  </li>
+</ul>
+
+<form method="post" action="/trace/clear"><button type="submit" class="link">Стереть все данные профилирования</button></form>
+{% endif %}
+{% endblock %}

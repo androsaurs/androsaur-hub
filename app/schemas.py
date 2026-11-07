@@ -1,6 +1,6 @@
 import math
 from datetime import date
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, StrictInt, field_validator, model_validator
 
@@ -416,3 +416,16 @@ class NoteText(BaseModel):
 
     id: str
     text: str
+
+
+class TraceEvent(BaseModel):
+    run: str = Field(min_length=1, max_length=40)
+    ts: int
+    src: Literal["audio", "app"]
+    stage: str = Field(min_length=1, max_length=40)
+    data: dict[str, Any] = Field(default_factory=dict)
+
+
+class TraceBatch(BaseModel):
+    device: str = Field(default="", max_length=64)
+    events: list[TraceEvent] = Field(max_length=300)

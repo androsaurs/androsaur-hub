@@ -55,6 +55,7 @@ class ThingsService:
         client: Callable[[str, str, str], MemoryLike] = MemoryServiceClient,
         clock: Callable[[], float] = time.time,
     ) -> None:
+        self.last_timing: dict[str, int] = {}
         self._repository = repository or ThingsRepository()
         self._secrets = secrets or IntegrationsRepository()
         self._integrations = integrations or IntegrationsService(
@@ -159,11 +160,13 @@ class ThingsService:
         if groq is None:
             return None, ThingReply(status="no_groq")
         key, min_confidence, _ = groq
+        started = time.monotonic()
         try:
             result = self._integrations.groq_client(key).transcribe(wav)
         except WeatherError as e:
             log.warning("things transcription failed: %s", e)
             return None, ThingReply(status="error")
+        self.last_timing["transcribe_ms"] = round((time.monotonic() - started) * 1000)
         text = " ".join(result.text.split())
         if not text or result.confidence < min_confidence or result.speech < 50:
             log.info(
@@ -214,15 +217,25 @@ class ThingsService:
             return problem or ThingReply(status="error")
         query = clean(heard)
         try:
+            started = time.monotonic()
             records = [r for r in client.records() if not r.superseded]
+            self.last_timing["records_ms"] = round((time.monotonic() - started) * 1000)
+            started = time.monotonic()
             scores = client.scores(query)
+            self.last_timing["scores_ms"] = round((time.monotonic() - started) * 1000)
         except MemoryServiceError as e:
             log.warning("things find failed: %s", e)
             return ThingReply(status="error")
         for record in records:
             record.score = scores.get(record.content_hash, 0.0)
         chosen, more = pick(query, records)
-        log.info("things found: records=%d chosen=%d more=%d", len(records), len(chosen), more)
+        log.info(
+            "things found: records=%d chosen=%d more=%d timing=%s",
+            len(records),
+            len(chosen),
+            more,
+            self.last_timing,
+        )
         if not chosen:
             return ThingReply(status="not_found", text=query)
         answer = ". ".join(r.content for r in chosen)

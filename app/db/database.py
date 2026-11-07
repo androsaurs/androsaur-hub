@@ -186,6 +186,20 @@ CREATE TABLE IF NOT EXISTS memory_settings (
     store TEXT NOT NULL
 );
 
+-- Профилирование: события сценариев (звук, приложение, хаб) для разбора сбоев и медленных этапов.
+-- ts — миллисекунды по часам телефона (у событий хаба — по часам хаба); данные без слов семьи.
+CREATE TABLE IF NOT EXISTS trace_events (
+    id     INTEGER PRIMARY KEY AUTOINCREMENT,
+    run    TEXT NOT NULL,
+    ts     INTEGER NOT NULL,
+    src    TEXT NOT NULL,
+    stage  TEXT NOT NULL,
+    data   TEXT NOT NULL DEFAULT '{}',
+    device TEXT NOT NULL DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS trace_events_run ON trace_events (run);
+CREATE INDEX IF NOT EXISTS trace_events_ts ON trace_events (ts);
+
 -- Погода дома: место (задаётся в админке) и последний прогноз.
 -- Одна строка; нет строки — место не задано.
 CREATE TABLE IF NOT EXISTS weather (

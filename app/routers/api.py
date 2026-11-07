@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
+import time
+
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Response, status
 from fastapi.concurrency import run_in_threadpool
 
 from app.dependencies import (
@@ -9,6 +11,7 @@ from app.dependencies import (
     get_notes_service,
     get_people_service,
     get_things_service,
+    get_trace_service,
 )
 from app.horoscope import HoroscopeReply, HoroscopeRequest
 from app.schemas import (
@@ -23,6 +26,7 @@ from app.schemas import (
     PeopleRequest,
     PeopleUpload,
     ThingReply,
+    TraceBatch,
 )
 from app.services.characters import CharacterError, CharacterService
 from app.services.devices import DeviceService, UnknownDevice
@@ -31,6 +35,7 @@ from app.services.horoscope import HoroscopeService
 from app.services.notes import NotesService
 from app.services.people import PeopleService, PersonError
 from app.services.things import ThingsService
+from app.services.trace import TraceService
 
 router = APIRouter(prefix="/api", tags=["api"])
 
@@ -170,7 +175,9 @@ async def announce(
     response: Response,
     sender: str = Query(default="", max_length=60, alias="from"),
     person: str = Query(default="", max_length=64, alias="fromId"),
+    run: str = Header(default="", alias="X-Trace-Run", max_length=40),
     service: HomeService = Depends(get_home_service),
+    trace: TraceService = Depends(get_trace_service),
 ) -> AnnounceReply:
     """Звук сообщения (WAV в теле) расшифровывается и произносится на колонке комнаты."""
     response.headers["Cache-Control"] = "no-store"
@@ -179,7 +186,18 @@ async def announce(
         raise HTTPException(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, "too large")
     if not wav.startswith(b"RIFF") or len(wav) < 100:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "not a wav")
-    return await run_in_threadpool(service.announce, room_id, wav, person, sender)
+    started = time.monotonic()
+    reply = await run_in_threadpool(service.announce, room_id, wav, person, sender)
+    trace.hub_event(
+        run,
+        "announce",
+        {
+            "status": reply.status,
+            "wav_bytes": len(wav),
+            "total_ms": round((time.monotonic() - started) * 1000),
+        },
+    )
+    return reply
 
 
 @router.post("/device/things/{kind}", response_model=ThingReply)
@@ -189,7 +207,9 @@ async def things(
     response: Response,
     sender: str = Query(default="", max_length=60, alias="from"),
     person: str = Query(default="", max_length=64, alias="fromId"),
+    run: str = Header(default="", alias="X-Trace-Run", max_length=40),
     service: ThingsService = Depends(get_things_service),
+    trace: TraceService = Depends(get_trace_service),
 ) -> ThingReply:
     """Голос после «запомни» (remember), «вспомни» (find) или «забудь» (forget): WAV в теле."""
     response.headers["Cache-Control"] = "no-store"
@@ -200,8 +220,32 @@ async def things(
         raise HTTPException(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, "too large")
     if not wav.startswith(b"RIFF") or len(wav) < 100:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "not a wav")
+    started = time.monotonic()
     if kind == "remember":
-        return await run_in_threadpool(service.remember, wav, person, sender)
-    if kind == "forget":
-        return await run_in_threadpool(service.forget, wav)
-    return await run_in_threadpool(service.find, wav)
+        reply = await run_in_threadpool(service.remember, wav, person, sender)
+    elif kind == "forget":
+        reply = await run_in_threadpool(service.forget, wav)
+    else:
+        reply = await run_in_threadpool(service.find, wav)
+    total_ms = round((time.monotonic() - started) * 1000)
+    trace.hub_event(
+        run,
+        "things",
+        {
+            "kind": kind,
+            "status": reply.status,
+            "wav_bytes": len(wav),
+            "total_ms": total_ms,
+            **service.last_timing,
+        },
+    )
+    return reply
+
+
+@router.post("/device/trace", status_code=status.HTTP_204_NO_CONTENT)
+def upload_trace(
+    batch: TraceBatch,
+    trace: TraceService = Depends(get_trace_service),
+) -> None:
+    """Телефон присылает события сценариев (звук и приложение) для страницы «Профилирование»."""
+    trace.add(batch.device, [e.model_dump() for e in batch.events])

@@ -7,6 +7,7 @@ from app.services.notes import NotesService
 from app.services.people import PeopleService
 from app.services.settings import SettingsService
 from app.services.things import ThingsService
+from app.services.trace import TraceService
 from app.services.weather import WeatherService
 
 
@@ -56,3 +57,8 @@ def get_home_service() -> HomeService:
 def get_things_service() -> ThingsService:
     """FastAPI-зависимость: «где что лежит» в сервере памяти."""
     return ThingsService()
+
+
+def get_trace_service() -> TraceService:
+    """FastAPI-зависимость: профилирование сценариев."""
+    return TraceService()
