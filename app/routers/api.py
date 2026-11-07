@@ -11,6 +11,7 @@ from app.dependencies import (
     get_medication_service,
     get_notes_service,
     get_people_service,
+    get_sitting_service,
     get_things_service,
     get_trace_service,
 )
@@ -27,6 +28,7 @@ from app.schemas import (
     MedicationReport,
     PeopleRequest,
     PeopleUpload,
+    SittingReport,
     ThingReply,
     TraceBatch,
 )
@@ -37,6 +39,7 @@ from app.services.horoscope import HoroscopeService
 from app.services.medication import MedicationService
 from app.services.notes import NotesService
 from app.services.people import PeopleService, PersonError
+from app.services.sitting import SittingService
 from app.services.things import ThingsService
 from app.services.trace import TraceService
 
@@ -112,6 +115,16 @@ def medication_events(
 ) -> None:
     """Телефон сообщает, кому и когда напомнил о лекарстве и кто сказал, что принял."""
     if not service.record(payload.device, payload.events):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "unknown device")
+
+
+@router.post("/device/sitting", status_code=status.HTTP_204_NO_CONTENT)
+def sitting_buckets(
+    payload: SittingReport,
+    service: SittingService = Depends(get_sitting_service),
+) -> None:
+    """Телефон присылает 15-минутные ячейки: сколько видел человека и как долго он не вставал."""
+    if not service.record(payload.device, payload.buckets):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "unknown device")
 
 

@@ -17,6 +17,7 @@ from app.dependencies import (
     get_notes_service,
     get_people_service,
     get_settings_service,
+    get_sitting_service,
     get_things_service,
     get_trace_service,
     get_weather_service,
@@ -31,6 +32,7 @@ from app.services.medication import MedicationError, MedicationService
 from app.services.notes import NotesService
 from app.services.people import ERRORS, PeopleService, PersonError
 from app.services.settings import SettingError, SettingsService
+from app.services.sitting import SittingError, SittingService
 from app.services.things import ThingsService, ThingsSettingError
 from app.services.trace import TraceService
 from app.services.weather import WeatherService, describe
@@ -667,3 +669,30 @@ def delete_medication_time(
 ) -> RedirectResponse:
     medication.remove_time(person, at)
     return _back(path="/medication")
+
+
+@router.get("/health", response_class=HTMLResponse)
+def health_page(
+    request: Request,
+    error: str | None = None,
+    sitting: SittingService = Depends(get_sitting_service),
+) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request, "health.html", {"page": "health", "people": sitting.view(), "error": error}
+    )
+
+
+@router.post("/health/{person}")
+def save_health(
+    person: str,
+    enabled: str = Form(""),
+    first_min: int = Form(...),
+    repeat_min: int = Form(...),
+    break_min: int = Form(...),
+    sitting: SittingService = Depends(get_sitting_service),
+) -> RedirectResponse:
+    try:
+        sitting.save(person, enabled == "on", first_min, repeat_min, break_min)
+    except SittingError as e:
+        return _back(str(e), "/health")
+    return _back(path="/health")

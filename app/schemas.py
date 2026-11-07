@@ -306,6 +306,8 @@ class DeviceConfig(BaseModel):
     rooms: list[RoomWords] = Field(default_factory=list)
     # Графики приёма лекарств людей дома (только у кого времена заданы).
     medications: list["MedicationPlan"] = Field(default_factory=list)
+    # «Не засиживаться»: настройки людей, у кого включено.
+    sitting: list["SittingPlan"] = Field(default_factory=list)
     weather: WeatherReading | None = None
 
 
@@ -419,6 +421,33 @@ class MedicationPlan(BaseModel):
     person: str
     name: str
     times: list[str]
+
+
+class SittingPlan(BaseModel):
+    """Настройки «не засиживаться» человека для телефона (у кого включено), минуты."""
+
+    person: str
+    name: str
+    first_min: int = Field(serialization_alias="firstMin")
+    repeat_min: int = Field(serialization_alias="repeatMin")
+    break_min: int = Field(serialization_alias="breakMin")
+
+
+class SittingBucket(BaseModel):
+    """15-минутная ячейка: сколько секунд человека видели и самая долгая серия (минуты)."""
+
+    person: str = Field(min_length=1, max_length=64)
+    bucket: str = Field(pattern=r"^\d{4}-\d{2}-\d{2}T\d{2}:(00|15|30|45)$")
+    present_s: int = Field(ge=0, le=900, alias="presentS")
+    streak_min: int = Field(ge=0, le=1440, alias="streakMin")
+    level: int = Field(ge=0, le=2)
+
+    model_config = {"populate_by_name": True}
+
+
+class SittingReport(BaseModel):
+    device: str = Field(pattern=r"^[A-Za-z0-9-]{8,64}$")
+    buckets: list[SittingBucket] = Field(max_length=300)
 
 
 class MedicationEvent(BaseModel):

@@ -206,6 +206,26 @@ CREATE TABLE IF NOT EXISTS medication_log (
     PRIMARY KEY (person, slot, kind)
 );
 
+-- Здоровье: непрерывное сидение перед камерой. Настройки человека (по умолчанию выключено; минуты:
+-- первое напоминание, повтор до второго, перерыв, после которого отсчёт идёт заново) и 15-минутные
+-- ячейки телефона для тепловой карты (только длительности, без кадров). bucket — начало ячейки по
+-- местным часам «ГГГГ-ММ-ДДTЧЧ:ММ»; ячейка перезаписывается большими значениями (повтор телефона).
+CREATE TABLE IF NOT EXISTS sitting_settings (
+    person     TEXT PRIMARY KEY REFERENCES house_people (id),
+    enabled    INTEGER NOT NULL DEFAULT 0,
+    first_min  INTEGER NOT NULL DEFAULT 40,
+    repeat_min INTEGER NOT NULL DEFAULT 20,
+    break_min  INTEGER NOT NULL DEFAULT 5
+);
+CREATE TABLE IF NOT EXISTS sitting_buckets (
+    person     TEXT NOT NULL,
+    bucket     TEXT NOT NULL,
+    present_s  INTEGER NOT NULL,
+    streak_min INTEGER NOT NULL,
+    level      INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (person, bucket)
+);
+
 -- Профилирование: события сценариев (звук, приложение, хаб) для разбора сбоев и медленных этапов.
 -- ts — миллисекунды по часам телефона (у событий хаба — по часам хаба); данные без слов семьи.
 CREATE TABLE IF NOT EXISTS trace_events (

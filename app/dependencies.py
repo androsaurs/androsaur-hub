@@ -7,6 +7,7 @@ from app.services.medication import MedicationService
 from app.services.notes import NotesService
 from app.services.people import PeopleService
 from app.services.settings import SettingsService
+from app.services.sitting import SittingService
 from app.services.things import ThingsService
 from app.services.trace import TraceService
 from app.services.weather import WeatherService
@@ -48,6 +49,11 @@ def get_integrations_service() -> IntegrationsService:
 def get_medication_service() -> MedicationService:
     """FastAPI-зависимость: графики приёма лекарств и журнал напоминаний."""
     return MedicationService()
+
+
+def get_sitting_service() -> SittingService:
+    """FastAPI-зависимость: «не засиживаться» и тепловая карта."""
+    return SittingService()
 
 
 def get_notes_service() -> NotesService:

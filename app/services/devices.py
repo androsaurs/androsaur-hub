@@ -18,6 +18,7 @@ from app.services.home import HomeService
 from app.services.medication import MedicationService
 from app.services.notes import NotesService
 from app.services.people import PeopleService
+from app.services.sitting import SittingService
 from app.services.weather import WeatherService
 
 
@@ -46,6 +47,7 @@ class DeviceService:
         self._notes = NotesService(clock=clock)
         self._home = HomeService(clock=clock)
         self._medication = MedicationService(clock=clock)
+        self._sitting = SittingService(clock=clock)
         self._clock = clock
 
     def register(self, reg: DeviceRegistration) -> DeviceConfig:
@@ -103,6 +105,7 @@ class DeviceService:
             roles=self._house.roles(),
             rooms=self._home.rooms_for_phone(),
             medications=self._medication.plans(),
+            sitting=self._sitting.plans(),
         )
 
 

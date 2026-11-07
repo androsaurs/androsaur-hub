@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% from "_ui.html" import page_header %}
+
+{% block title %}Здоровье · {{ app_name }}{% endblock %}
+
+{% block content %}
+{% call page_header("Здоровье") %}Петя следит, как долго человек непрерывно сидит перед камерой. Через первое время он напоминает отвлечься, и персонаж становится грустным и уставшим; через повтор напоминает в последний раз, и персонаж валится с ног. Перерыв — отсутствие перед камерой не меньше заданного: после него отсчёт идёт заново, а Петя говорит «Молодец, отдохнул». Хранятся только длительности по 15 минут, без кадров. Без хаба настройки работают с телефона.{% endcall %}
+
+{% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+
+{% if not people %}
+<p class="empty">Людей дома пока нет: их присылает телефон после того, как камера выучит лица.</p>
+{% endif %}
+
+<ul class="integrations one-col">
+  {% for p in people %}
+  <li class="integration {% if p.enabled %}on{% endif %}">
+    <div class="setting-head">
+      <span class="setting-title">{{ p.name }}</span>
+      <span class="badge {% if p.enabled %}on{% endif %}">{{ 'включено' if p.enabled else 'выключено' }}</span>
+    </div>
+    <form class="setting-form" method="post" action="/health/{{ p.id }}">
+      <label class="profile-checkbox"><input type="checkbox" name="enabled" {% if p.enabled %}checked{% endif %}> Напоминать</label>
+      <label>Первое напоминание, мин <input type="number" name="first_min" min="1" max="600" required value="{{ p.first_min }}"></label>
+      <label>Повтор через, мин <input type="number" name="repeat_min" min="1" max="600" required value="{{ p.repeat_min }}"></label>
+      <label>Перерыв от, мин <input type="number" name="break_min" min="1" max="600" required value="{{ p.break_min }}"></label>
+      <button type="submit">Сохранить</button>
+    </form>
+    <p class="setting-desc">Сегодня: дольше всего без перерыва {{ p.today_streak_min }} мин, на месте {{ p.today_present_min }} мин.</p>
+    <div class="heat-scroll">
+      <div class="heat">
+        <div class="heat-row heat-axis"><span></span><div class="heat-ticks">{% for h in range(0, 24, 3) %}<span>{{ '%02d' | format(h) }}:00</span>{% endfor %}</div></div>
+        {% for d in p.days %}
+        <div class="heat-row"><span class="heat-day">{{ d.label }}</span>
+          <div class="heat-cells">{% for c in d.cells %}<i class="heat-cell" style="background:{{ c.style }}" title="{{ c.title }}"></i>{% endfor %}</div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    <p class="hint heat-legend"><i class="heat-cell" style="background:hsl(120 70% 48%)"></i> недолго <i class="heat-cell" style="background:hsl(60 70% 48%)"></i> дольше <i class="heat-cell" style="background:hsl(0 70% 48%)"></i> до конца шкалы ({{ p.first_min + p.repeat_min }} мин) <i class="heat-cell" style="background:#e5e7eb"></i> вас не было</p>
+  </li>
+  {% endfor %}
+</ul>
+{% endblock %}
