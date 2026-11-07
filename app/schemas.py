@@ -304,6 +304,8 @@ class DeviceConfig(BaseModel):
     roles: list[RoleSet] = Field(default_factory=list)
     # Комнаты с колонками: по ним телефон отличает «передай в детскую» от записки человеку.
     rooms: list[RoomWords] = Field(default_factory=list)
+    # Графики приёма лекарств людей дома (только у кого времена заданы).
+    medications: list["MedicationPlan"] = Field(default_factory=list)
     weather: WeatherReading | None = None
 
 
@@ -409,6 +411,30 @@ class HubNote(BaseModel):
     usable: bool | None
     error: str | None
     has_audio: bool
+
+
+class MedicationPlan(BaseModel):
+    """График приёма лекарств человека для телефона: времена ЧЧ:ММ; телефон хранит его сам."""
+
+    person: str
+    name: str
+    times: list[str]
+
+
+class MedicationEvent(BaseModel):
+    """Что произошло на телефоне: ``reminded`` — напомнил, ``taken`` — человек сказал, что принял.
+
+    ``slot`` — начало интервала по местным часам («ГГГГ-ММ-ДДTЧЧ:ММ»), ``at`` — время, мс."""
+
+    person: str = Field(min_length=1, max_length=64)
+    slot: str = Field(pattern=r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$")
+    kind: Literal["reminded", "taken"]
+    at: int = Field(ge=0)
+
+
+class MedicationReport(BaseModel):
+    device: str = Field(pattern=r"^[A-Za-z0-9-]{8,64}$")
+    events: list[MedicationEvent] = Field(max_length=200)
 
 
 class NoteText(BaseModel):

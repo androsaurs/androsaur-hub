@@ -13,6 +13,7 @@ from app.dependencies import (
     get_home_service,
     get_horoscope_service,
     get_integrations_service,
+    get_medication_service,
     get_notes_service,
     get_people_service,
     get_settings_service,
@@ -26,6 +27,7 @@ from app.services.devices import DeviceService
 from app.services.home import HomeService, HomeSettingError
 from app.services.horoscope import HoroscopeService
 from app.services.integrations import IntegrationError, IntegrationsService
+from app.services.medication import MedicationError, MedicationService
 from app.services.notes import NotesService
 from app.services.people import ERRORS, PeopleService, PersonError
 from app.services.settings import SettingError, SettingsService
@@ -629,3 +631,39 @@ def trace_runs(days: int = 7, trace: TraceService = Depends(get_trace_service)) 
 def trace_clear(trace: TraceService = Depends(get_trace_service)) -> RedirectResponse:
     trace.clear()
     return RedirectResponse("/trace", status_code=303)
+
+
+@router.get("/medication", response_class=HTMLResponse)
+def medication_page(
+    request: Request,
+    error: str | None = None,
+    medication: MedicationService = Depends(get_medication_service),
+) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request,
+        "medication.html",
+        {"page": "medication", "people": medication.view(), "error": error},
+    )
+
+
+@router.post("/medication/{person}/times")
+def add_medication_time(
+    person: str,
+    at: str = Form(...),
+    medication: MedicationService = Depends(get_medication_service),
+) -> RedirectResponse:
+    try:
+        medication.add_time(person, at)
+    except MedicationError as e:
+        return _back(str(e), "/medication")
+    return _back(path="/medication")
+
+
+@router.post("/medication/{person}/times/delete")
+def delete_medication_time(
+    person: str,
+    at: str = Form(...),
+    medication: MedicationService = Depends(get_medication_service),
+) -> RedirectResponse:
+    medication.remove_time(person, at)
+    return _back(path="/medication")

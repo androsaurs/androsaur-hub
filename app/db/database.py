@@ -1,4 +1,5 @@
 import sqlite3
+import time
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
@@ -186,6 +187,25 @@ CREATE TABLE IF NOT EXISTS memory_settings (
     store TEXT NOT NULL
 );
 
+-- Приём лекарств: времена приёма человека дома (ЧЧ:ММ; сколько угодно) и журнал напоминаний.
+-- slot — начало интервала по местным часам «ГГГГ-ММ-ДДTЧЧ:ММ»; kind: reminded — Петя напомнил,
+-- taken — человек сказал, что принял. Одно событие вида на интервал (повтор не дублируется).
+CREATE TABLE IF NOT EXISTS medication_times (
+    person   TEXT NOT NULL REFERENCES house_people (id),
+    at       TEXT NOT NULL,
+    -- Когда время добавили: история начинается с этого момента, раньше «не видели» не бывает.
+    added_at REAL NOT NULL DEFAULT 0,
+    PRIMARY KEY (person, at)
+);
+CREATE TABLE IF NOT EXISTS medication_log (
+    person TEXT NOT NULL,
+    slot   TEXT NOT NULL,
+    kind   TEXT NOT NULL CHECK (kind IN ('reminded', 'taken')),
+    at_ms  INTEGER NOT NULL,
+    device TEXT NOT NULL,
+    PRIMARY KEY (person, slot, kind)
+);
+
 -- Профилирование: события сценариев (звук, приложение, хаб) для разбора сбоев и медленных этапов.
 -- ts — миллисекунды по часам телефона (у событий хаба — по часам хаба); данные без слов семьи.
 CREATE TABLE IF NOT EXISTS trace_events (
@@ -312,6 +332,10 @@ def init_db() -> None:
                 "ALTER TABLE house_people ADD COLUMN "
                 "horoscope_in_greeting INTEGER NOT NULL DEFAULT 0"
             )
+        medication = {row["name"] for row in conn.execute("PRAGMA table_info(medication_times)")}
+        if medication and "added_at" not in medication:
+            conn.execute("ALTER TABLE medication_times ADD COLUMN added_at REAL NOT NULL DEFAULT 0")
+            conn.execute("UPDATE medication_times SET added_at = ?", (time.time(),))
         weather = {row["name"] for row in conn.execute("PRAGMA table_info(weather)")}
         if weather and "hours" not in weather:
             conn.execute("ALTER TABLE weather ADD COLUMN hours TEXT")

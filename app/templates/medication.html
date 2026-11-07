@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% from "_ui.html" import page_header %}
+
+{% block title %}Лекарства · {{ app_name }}{% endblock %}
+
+{% block content %}
+{% call page_header("Лекарства") %}У каждого человека свой график: время приёма и сколько угодно приёмов в день. Время начинает интервал, он длится до следующего времени приёма и бесшовно переходит в новые сутки (с 18:00 до 08:00 — один интервал). В интервале Петя напоминает один раз: когда камера впервые увидела человека. «Принял» закрывает только это напоминание и только пока человек в кадре. Без хаба график работает с телефона: он хранит копию.{% endcall %}
+
+{% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+
+{% if not people %}
+<p class="empty">Людей дома пока нет: их присылает телефон после того, как камера выучит лица.</p>
+{% endif %}
+
+<ul class="integrations one-col">
+  {% for p in people %}
+  <li class="integration {% if p.times %}on{% endif %}">
+    <div class="setting-head">
+      <span class="setting-title">{{ p.name }}</span>
+      <span class="badge {% if p.times %}on{% endif %}">{% if p.times %}приёмов в день: {{ p.times | length }}{% else %}график не задан{% endif %}</span>
+    </div>
+    <div class="integration-actions">
+      {% for t in p.times %}
+      <form method="post" action="/medication/{{ p.id }}/times/delete" class="setting-form">
+        <span class="badge on">{{ t }}</span>
+        <input type="hidden" name="at" value="{{ t }}">
+        <button type="submit" class="link" aria-label="Убрать время {{ t }}">убрать</button>
+      </form>
+      {% endfor %}
+    </div>
+    <form class="setting-form" method="post" action="/medication/{{ p.id }}/times">
+      <input type="time" name="at" required aria-label="Время приёма для {{ p.name }}">
+      <button type="submit">Добавить время</button>
+    </form>
+    {% if p.slots %}
+    <div class="table-scroll"><table class="table">
+      <thead><tr><th>Интервал с</th><th>Итог</th></tr></thead>
+      <tbody>
+      {% for s in p.slots %}
+        <tr{% if s.status == 'unseen' %} class="failed"{% endif %}>
+          <td>{{ s.start.strftime('%d.%m %H:%M') }}</td>
+          <td>{{ s.text }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table></div>
+    {% endif %}
+  </li>
+  {% endfor %}
+</ul>
+{% endblock %}

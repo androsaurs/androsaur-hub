@@ -3,6 +3,7 @@ from app.services.devices import DeviceService
 from app.services.home import HomeService
 from app.services.horoscope import HoroscopeService
 from app.services.integrations import IntegrationsService
+from app.services.medication import MedicationService
 from app.services.notes import NotesService
 from app.services.people import PeopleService
 from app.services.settings import SettingsService
@@ -42,6 +43,11 @@ def get_weather_service() -> WeatherService:
 def get_integrations_service() -> IntegrationsService:
     """FastAPI-зависимость: раздел «Интеграции»."""
     return IntegrationsService()
+
+
+def get_medication_service() -> MedicationService:
+    """FastAPI-зависимость: графики приёма лекарств и журнал напоминаний."""
+    return MedicationService()
 
 
 def get_notes_service() -> NotesService:

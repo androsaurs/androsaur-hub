@@ -8,6 +8,7 @@ from app.dependencies import (
     get_device_service,
     get_home_service,
     get_horoscope_service,
+    get_medication_service,
     get_notes_service,
     get_people_service,
     get_things_service,
@@ -23,6 +24,7 @@ from app.schemas import (
     DeviceSync,
     HousePeople,
     HubNote,
+    MedicationReport,
     PeopleRequest,
     PeopleUpload,
     ThingReply,
@@ -32,6 +34,7 @@ from app.services.characters import CharacterError, CharacterService
 from app.services.devices import DeviceService, UnknownDevice
 from app.services.home import HomeService
 from app.services.horoscope import HoroscopeService
+from app.services.medication import MedicationService
 from app.services.notes import NotesService
 from app.services.people import PeopleService, PersonError
 from app.services.things import ThingsService
@@ -100,6 +103,16 @@ def sync(
         return service.sync(payload)
     except UnknownDevice:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "unknown device") from None
+
+
+@router.post("/device/medication", status_code=status.HTTP_204_NO_CONTENT)
+def medication_events(
+    payload: MedicationReport,
+    service: MedicationService = Depends(get_medication_service),
+) -> None:
+    """Телефон сообщает, кому и когда напомнил о лекарстве и кто сказал, что принял."""
+    if not service.record(payload.device, payload.events):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "unknown device")
 
 
 @router.post("/device/people/upload", status_code=status.HTTP_204_NO_CONTENT)

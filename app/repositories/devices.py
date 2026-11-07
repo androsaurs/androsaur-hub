@@ -33,6 +33,11 @@ class DeviceRepository:
             )
         return cursor.rowcount > 0
 
+    def exists(self, device_id: str) -> bool:
+        with get_connection() as conn:
+            row = conn.execute("SELECT 1 FROM devices WHERE id = ?", (device_id,)).fetchone()
+        return row is not None
+
     def list(self) -> list[Device]:
         with get_connection() as conn:
             rows = conn.execute(f"SELECT {_COLUMNS} FROM devices ORDER BY name, id").fetchall()
