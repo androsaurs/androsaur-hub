@@ -57,7 +57,9 @@ CREATE TABLE IF NOT EXISTS devices (
     -- Модель распознавания лиц камеры телефона; наборы чисел другой модели несовместимы.
     face_model    TEXT    NOT NULL DEFAULT '',
     -- Какую версию людей дома телефон уже загрузил.
-    people_rev    INTEGER NOT NULL DEFAULT 0
+    people_rev    INTEGER NOT NULL DEFAULT 0,
+    -- Имя от владельца («Кухня»); пусто — имя самого телефона.
+    label         TEXT    NOT NULL DEFAULT ''
 );
 
 -- Описание настроек присылают сами устройства (схема модуля).
@@ -265,6 +267,43 @@ CREATE TABLE IF NOT EXISTS commands (
     ok         INTEGER,
     error      TEXT
 );
+
+-- Вход в админку. Хранится только хеш пароля (scrypt) и хеши токенов: утёкшая база не даёт войти.
+CREATE TABLE IF NOT EXISTS users (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    username      TEXT    NOT NULL UNIQUE,
+    password_hash TEXT    NOT NULL,
+    created_at    REAL    NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS sessions (
+    token_hash TEXT    PRIMARY KEY,
+    user_id    INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    created_at REAL    NOT NULL,
+    expires_at REAL    NOT NULL
+);
+
+-- Одноразовые ссылки первичной настройки (создать владельца) и коды привязки телефонов.
+CREATE TABLE IF NOT EXISTS setup_tokens (
+    token_hash TEXT PRIMARY KEY,
+    expires_at REAL NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS pairing_codes (
+    code_hash  TEXT PRIMARY KEY,
+    created_at REAL NOT NULL,
+    expires_at REAL NOT NULL
+);
+
+-- Токен телефона: у каждого свой, выдаётся по коду привязки, отзывается в админке.
+CREATE TABLE IF NOT EXISTS device_tokens (
+    token_hash   TEXT PRIMARY KEY,
+    device_id    TEXT NOT NULL,
+    name         TEXT NOT NULL DEFAULT '',
+    created_at   REAL NOT NULL,
+    last_used_at REAL
+);
+CREATE INDEX IF NOT EXISTS device_tokens_device ON device_tokens (device_id);
 """
 )
 
@@ -273,6 +312,7 @@ _DEVICE_COLUMNS = {
     "joined": "joined INTEGER NOT NULL DEFAULT 0",
     "face_model": "face_model TEXT NOT NULL DEFAULT ''",
     "people_rev": "people_rev INTEGER NOT NULL DEFAULT 0",
+    "label": "label TEXT NOT NULL DEFAULT ''",
 }
 
 

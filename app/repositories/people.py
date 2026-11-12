@@ -199,8 +199,9 @@ class PeopleRepository:
             ).fetchall()
             knows = conn.execute(
                 """
-                SELECT p.person_id, d.name FROM device_people p
-                JOIN devices d ON d.id = p.device_id ORDER BY d.name
+                SELECT p.person_id, COALESCE(NULLIF(d.label, ''), d.name) AS name
+                FROM device_people p
+                JOIN devices d ON d.id = p.device_id ORDER BY 2
                 """
             ).fetchall()
         devices: dict[str, list[str]] = {}
@@ -325,7 +326,8 @@ class PeopleRepository:
         with get_connection() as conn:
             rows = conn.execute(
                 """
-                SELECT c.id, d.name AS device_name, c.kind, c.args, c.done_at, c.ok, c.error
+                SELECT c.id, COALESCE(NULLIF(d.label, ''), d.name) AS device_name,
+                    c.kind, c.args, c.done_at, c.ok, c.error
                 FROM commands c JOIN devices d ON d.id = c.device_id
                 ORDER BY c.id DESC LIMIT ?
                 """,

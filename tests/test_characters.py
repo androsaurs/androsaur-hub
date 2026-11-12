@@ -85,3 +85,9 @@ def test_recognition_lookup_sees_changes_immediately_without_waiting_for_sync(cl
     assert current.headers["cache-control"] == "no-store"
     choose(client, KATYA["id"], "dinosaur")
     assert client.get("/api/characters").json()["characters"] == {KATYA["id"]: "dinosaur"}
+
+
+def test_the_catalog_uses_the_common_page_header(client):
+    page = client.get("/characters").text
+    assert 'class="page-header"' in page and "<h1>Персонажи</h1>" in page
+    assert '<p class="lead">' in page and "catalog-intro" not in page

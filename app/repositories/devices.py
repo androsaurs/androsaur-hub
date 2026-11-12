@@ -1,7 +1,7 @@
 from app.db.database import get_connection
 from app.schemas import Device, DeviceRegistration
 
-_COLUMNS = "id, name, model, app_version, last_seen_at, applied_rev"
+_COLUMNS = "id, name, label, model, app_version, last_seen_at, applied_rev"
 
 
 class DeviceRepository:
@@ -31,6 +31,12 @@ class DeviceRepository:
                 """,
                 (now, applied_rev, device_id),
             )
+        return cursor.rowcount > 0
+
+    def set_label(self, device_id: str, label: str) -> bool:
+        """Имя от владельца; пустое возвращает имя самого телефона. False — телефона нет."""
+        with get_connection() as conn:
+            cursor = conn.execute("UPDATE devices SET label = ? WHERE id = ?", (label, device_id))
         return cursor.rowcount > 0
 
     def exists(self, device_id: str) -> bool:

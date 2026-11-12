@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_ui.html" import page_header %}
 
 {% block title %}Погода · {{ app_name }}{% endblock %}
 
@@ -65,15 +66,18 @@
   details.hours summary { cursor: pointer; color: var(--accent); }
 </style>
 
-{% if not embed %}<h1>Погода</h1>{% endif %}
+{% if not embed %}
+{% if reading and chart.points %}
+{% call page_header("Погода") %}{{ place.name if place else reading.place }} · от этого часа до конца
+  {% if reading.source == "Яндекс Погода" %}завтрашнего дня{% else %}прогноза{% endif %},
+  по часам · {{ reading.source or "источник неизвестен" }}, обновлено {{ ((now_ms - reading.fetched_at_ms) // 1000) | ago }}.{% endcall %}
+{% else %}
+{{ page_header("Погода") }}
+{% endif %}
+{% endif %}
 {% if not reading or not chart.points %}
 <p class="empty"{% if embed %} style="color:#c3c2b7"{% endif %}>Прогноза по часам пока нет. Задайте город в <a href="/">настройках</a> — хаб получит прогноз в течение минуты.</p>
 {% else %}
-{% if not embed %}
-<p class="hint">{{ place.name if place else reading.place }} · от этого часа до конца
-  {% if reading.source == "Яндекс Погода" %}завтрашнего дня{% else %}прогноза{% endif %},
-  по часам · {{ reading.source or "источник неизвестен" }}, обновлено {{ ((now_ms - reading.fetched_at_ms) // 1000) | ago }}.</p>
-{% endif %}
 
 <div class="viz-root" id="viz">
   <div class="viz-panel-title"><b>Температура, °C</b>

@@ -3,16 +3,20 @@ import contextlib
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
+from urllib.parse import quote
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, Request, status
+from fastapi.responses import PlainTextResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from app.config import get_settings
 from app.db.database import init_db
 from app.dependencies import get_notes_service, get_weather_service
 from app.repositories.settings import SettingsRepository
-from app.routers import api, pages
+from app.routers import api, auth, pages
 from app.schemas import WAKE_PHRASE_FIELD
+from app.security import LoginRequired, require_owner
+from app.services.auth import AuthService
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 
@@ -23,6 +27,14 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # клиентов внешних API, планировщики и т.п.
     init_db()
     SettingsRepository().upsert_fields([WAKE_PHRASE_FIELD])
+    setup_token = AuthService().ensure_setup_token()
+    if setup_token:
+        print(
+            "Androsaur Hub: владелец ещё не создан. Откройте в браузере "
+            f"http://<адрес хаба>:<порт>/setup?token={setup_token} (ссылка действует сутки; "
+            "новую выдаёт команда python -m app.cli setup-link)",
+            flush=True,
+        )
     tasks = (
         [asyncio.create_task(_weather_loop(app)), asyncio.create_task(_notes_loop(app))]
         if get_settings().weather_enabled
@@ -62,8 +74,29 @@ def create_app() -> FastAPI:
     app = FastAPI(title=settings.app_name, debug=settings.debug, lifespan=lifespan)
 
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
-    app.include_router(pages.router)
+    app.include_router(auth.router)
+    app.include_router(pages.router, dependencies=[Depends(require_owner)])
+    app.include_router(api.public_router)
     app.include_router(api.router)
+
+    @app.exception_handler(LoginRequired)
+    async def login_required(request: Request, _: LoginRequired) -> Response:
+        if request.method == "GET":
+            target = request.url.path + (f"?{request.url.query}" if request.url.query else "")
+            return RedirectResponse(
+                f"/login?next={quote(target)}", status_code=status.HTTP_303_SEE_OTHER
+            )
+        return PlainTextResponse("login required", status_code=status.HTTP_401_UNAUTHORIZED)
+
+    @app.middleware("http")
+    async def security_headers(request: Request, call_next):  # type: ignore[no-untyped-def]
+        response: Response = await call_next(request)
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("Referrer-Policy", "same-origin")
+        response.headers.setdefault("X-Frame-Options", "DENY")
+        response.headers.setdefault("Content-Security-Policy", "frame-ancestors 'none'")
+        return response
+
     return app
 
 

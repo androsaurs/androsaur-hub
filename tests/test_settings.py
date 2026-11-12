@@ -41,7 +41,7 @@ def test_registration_publishes_the_settings_and_returns_no_overrides(client):
     page = client.get("/")
     assert "Затемнение экрана, когда никого нет" in page.text
     assert "по умолчанию" in page.text
-    assert "Redmi 12" in page.text
+    assert "Redmi 12" in client.get("/devices").text
 
 
 def test_a_value_set_in_the_hub_reaches_the_device_with_a_new_revision(client):
@@ -55,10 +55,10 @@ def test_a_value_set_in_the_hub_reaches_the_device_with_a_new_revision(client):
     config = sync(client, applied=first).json()
     assert config["values"] == {"androsaur": {"dim_after_s": 45}}
     assert config["rev"] > first
-    assert "ждёт устройство" in client.get("/").text
+    assert "ждёт устройство" in client.get("/devices").text
 
     sync(client, applied=config["rev"])
-    assert "настройки применены" in client.get("/").text
+    assert "настройки применены" in client.get("/devices").text
 
 
 def test_reset_brings_the_module_default_back(client):

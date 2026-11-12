@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, R
 from fastapi.concurrency import run_in_threadpool
 
 from app.dependencies import (
+    get_auth_service,
     get_character_service,
     get_device_service,
     get_home_service,
@@ -21,6 +22,8 @@ from app.schemas import (
     AnnounceReply,
     CharacterAppearance,
     DeviceConfig,
+    DevicePaired,
+    DevicePairing,
     DeviceRegistration,
     DeviceSync,
     HousePeople,
@@ -32,6 +35,8 @@ from app.schemas import (
     ThingReply,
     TraceBatch,
 )
+from app.security import require_device, same_device
+from app.services.auth import PAIRING_THROTTLE, AuthError, AuthService
 from app.services.characters import CharacterError, CharacterService
 from app.services.devices import DeviceService, UnknownDevice
 from app.services.home import HomeService
@@ -43,7 +48,36 @@ from app.services.sitting import SittingService
 from app.services.things import ThingsService
 from app.services.trace import TraceService
 
-router = APIRouter(prefix="/api", tags=["api"])
+# Без токена: проверка, что хаб жив, и обмен одноразового кода на токен телефона.
+public_router = APIRouter(prefix="/api", tags=["api"])
+# Всё остальное — только привязанным телефонам.
+router = APIRouter(prefix="/api", tags=["api"], dependencies=[Depends(require_device)])
+
+
+@public_router.get("/health")
+def health() -> dict[str, str]:
+    return {"status": "ok"}
+
+
+@public_router.post("/device/pair", response_model=DevicePaired)
+def pair(
+    payload: DevicePairing,
+    request: Request,
+    response: Response,
+    auth: AuthService = Depends(get_auth_service),
+) -> DevicePaired:
+    """Телефон меняет код из админки на свой токен. Код одноразовый и живёт 10 минут."""
+    response.headers["Cache-Control"] = "no-store"
+    key = request.client.host if request.client else "?"
+    if PAIRING_THROTTLE.blocked(key):
+        raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, "too many attempts")
+    try:
+        token = auth.pair(payload.code, payload.id, payload.name)
+    except AuthError as e:
+        PAIRING_THROTTLE.fail(key)
+        raise HTTPException(status.HTTP_403_FORBIDDEN, str(e)) from None
+    PAIRING_THROTTLE.reset(key)
+    return DevicePaired(token=token)
 
 
 @router.post("/horoscope", response_model=HoroscopeReply)
@@ -81,27 +115,26 @@ def set_character_accessory(
     return service.appearance()
 
 
-@router.get("/health")
-def health() -> dict[str, str]:
-    return {"status": "ok"}
-
-
 @router.post("/device/register", response_model=DeviceConfig)
 def register(
     payload: DeviceRegistration,
+    device: str = Depends(require_device),
     service: DeviceService = Depends(get_device_service),
 ) -> DeviceConfig:
     """Телефон сообщает о себе и о своих настройках и сразу получает действующие значения."""
+    same_device(device, payload.id)
     return service.register(payload)
 
 
 @router.post("/device/sync", response_model=DeviceConfig)
 def sync(
     payload: DeviceSync,
+    device: str = Depends(require_device),
     service: DeviceService = Depends(get_device_service),
 ) -> DeviceConfig:
     """Регулярное обращение телефона: он сообщает применённую ревизию, имена людей и результаты
     команд, а получает настройки и невыполненные команды."""
+    same_device(device, payload.device)
     try:
         return service.sync(payload)
     except UnknownDevice:
@@ -111,9 +144,11 @@ def sync(
 @router.post("/device/medication", status_code=status.HTTP_204_NO_CONTENT)
 def medication_events(
     payload: MedicationReport,
+    device: str = Depends(require_device),
     service: MedicationService = Depends(get_medication_service),
 ) -> None:
     """Телефон сообщает, кому и когда напомнил о лекарстве и кто сказал, что принял."""
+    same_device(device, payload.device)
     if not service.record(payload.device, payload.events):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "unknown device")
 
@@ -121,9 +156,11 @@ def medication_events(
 @router.post("/device/sitting", status_code=status.HTTP_204_NO_CONTENT)
 def sitting_buckets(
     payload: SittingReport,
+    device: str = Depends(require_device),
     service: SittingService = Depends(get_sitting_service),
 ) -> None:
     """Телефон присылает 15-минутные ячейки: сколько видел человека и как долго он не вставал."""
+    same_device(device, payload.device)
     if not service.record(payload.device, payload.buckets):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "unknown device")
 
@@ -131,9 +168,11 @@ def sitting_buckets(
 @router.post("/device/people/upload", status_code=status.HTTP_204_NO_CONTENT)
 def upload_people(
     payload: PeopleUpload,
+    device: str = Depends(require_device),
     service: PeopleService = Depends(get_people_service),
 ) -> None:
     """Телефон присылает наборы людей, которые хаб попросил в ответе на sync (``upload``)."""
+    same_device(device, payload.device)
     try:
         service.upload(payload)
     except PersonError:
@@ -143,9 +182,11 @@ def upload_people(
 @router.post("/device/people/download", response_model=HousePeople)
 def download_people(
     payload: PeopleRequest,
+    device: str = Depends(require_device),
     service: PeopleService = Depends(get_people_service),
 ) -> HousePeople:
     """Люди дома с наборами: телефон загружает их в камеру, когда ``peopleRev`` в sync новее."""
+    same_device(device, payload.device)
     try:
         return service.download(payload.device)
     except PersonError:
@@ -164,9 +205,11 @@ async def upload_note(
     sender: str = Query(default="", max_length=60, alias="from"),
     created_ms: int = Query(alias="createdMs"),
     duration_ms: int = Query(default=0, alias="durationMs"),
+    authed: str = Depends(require_device),
     service: NotesService = Depends(get_notes_service),
 ) -> dict[str, bool]:
     """Телефон отдаёт звук записки (WAV в теле запроса) для расшифровки."""
+    same_device(authed, device)
     if not note_id.isalnum() or len(note_id) > 40:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "bad note id")
     wav = await request.body()
@@ -271,7 +314,10 @@ async def things(
 @router.post("/device/trace", status_code=status.HTTP_204_NO_CONTENT)
 def upload_trace(
     batch: TraceBatch,
+    device: str = Depends(require_device),
     trace: TraceService = Depends(get_trace_service),
 ) -> None:
     """Телефон присылает события сценариев (звук и приложение) для страницы «Профилирование»."""
+    if batch.device:
+        same_device(device, batch.device)
     trace.add(batch.device, [e.model_dump() for e in batch.events])

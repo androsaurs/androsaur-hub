@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% from "_ui.html" import page_header %}
+
+{% block content %}
+{% call page_header("Устройства") %}Телефоны дома: по одному на комнату или сколько нужно. Хаб отвечает только привязанным; лица, обученные на одном телефоне, получают все.{% endcall %}
+
+{% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+<div class="setting">
+  <form method="post" action="/devices/pair-code" class="setting-foot">
+    <span>Каждый телефон получает свой ключ по одноразовому коду. Код живёт {{ pairing_minutes }} минут и подходит одному телефону; для следующей комнаты выпустите новый.</span>
+    <button type="submit">Добавить телефон</button>
+  </form>
+  {% if new_code %}
+  <p>Код привязки: <span class="pair-code">{{ new_code }}</span></p>
+  <p class="hint">На телефоне: касание лица → панель → «Подключить к хабу», адрес <code>{{ hub_url }}</code> и этот код.</p>
+  <p class="hint">Или с компьютера:</p>
+  <pre class="command">adb shell am start -n dev.hram.androsaur/.MainActivity --es hub {{ hub_url }} --es pair {{ new_code }}</pre>
+  {% elif pairing_left %}
+  <p class="hint">Неиспользованных кодов: {{ pairing_left | length }}, ближайший истечёт через {{ (pairing_left[0] // 60) + 1 }} мин.</p>
+  {% endif %}
+</div>
+{% if devices %}
+<ul class="devices">
+  {% for d in devices %}
+  <li>
+    <div>
+      <span class="device-name">{{ d.device.title }}</span>
+      <span class="device-meta">{% if d.device.label %}{{ d.device.name }} · {% endif %}{{ d.device.model }}{% if d.device.app_version %} · androsaur {{ d.device.app_version }}{% endif %}</span>
+      <form method="post" action="/devices/{{ d.device.id }}/rename" class="device-rename">
+        <input type="text" name="name" value="{{ d.device.label }}" maxlength="40" placeholder="Имя: Кухня, Детская…" aria-label="Имя телефона {{ d.device.title }}">
+        <button type="submit" class="secondary">Переименовать</button>
+      </form>
+    </div>
+    <div class="device-state">
+      {% if d.device.id in paired %}
+      <span class="dot {{ 'on' if d.online else 'off' }}"></span>
+      {% if d.online %}на связи{% else %}не на связи{% endif %}{% if d.seen_ago_s is not none %}, {{ d.seen_ago_s | ago }}{% endif %}
+      · {% if d.up_to_date %}настройки применены{% else %}ждёт устройство{% endif %}
+      <form method="post" action="/devices/{{ d.device.id }}/revoke" class="inline-form">
+        <button type="submit" class="link">Отключить</button>
+      </form>
+      {% else %}
+      <span class="dot off"></span> не привязан: нужен код привязки
+      {% endif %}
+    </div>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="empty">Ни один телефон ещё не подключался.</p>
+{% endif %}
+<p class="hint rev">Ревизия настроек {{ revision }}</p>
+{% endblock %}

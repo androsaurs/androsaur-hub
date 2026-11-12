@@ -61,6 +61,20 @@ WAKE_PHRASE_FIELD = SettingField(
 )
 
 
+class DevicePairing(BaseModel):
+    """Телефон предъявляет одноразовый код из админки, чтобы получить свой токен."""
+
+    code: str = Field(min_length=4, max_length=20)
+    id: str = Field(pattern=r"^[A-Za-z0-9-]{8,64}$")
+    name: str = Field(default="", max_length=100)
+
+
+class DevicePaired(BaseModel):
+    """Токен телефона: показывается один раз, хаб хранит только его хеш."""
+
+    token: str
+
+
 class DeviceRegistration(BaseModel):
     """Что телефон сообщает о себе при подключении."""
 
@@ -371,10 +385,16 @@ class IntegrationView(BaseModel):
 class Device(BaseModel):
     id: str
     name: str
+    label: str = ""
     model: str
     app_version: str
     last_seen_at: float | None
     applied_rev: int
+
+    @property
+    def title(self) -> str:
+        """Как телефон назван в админке: имя от владельца, а без него имя самого телефона."""
+        return self.label or self.name
 
 
 class DeviceView(BaseModel):

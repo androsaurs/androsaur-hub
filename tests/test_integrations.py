@@ -213,10 +213,15 @@ def test_the_weather_page_has_the_hours_for_the_chart(hub):
     page = hub.get("/weather").text
     assert 'id="chart-data"' in page and "Яндекс Погода" in page
     assert "Таблица по часам" in page
+    assert 'class="page-header"' in page
+    assert '<p class="lead">' in page and "Яндекс Погода, обновлено" in page
+    assert 'class="hint"' not in page
 
 
 def test_the_weather_page_without_a_place(hub):
-    assert "Прогноза по часам пока нет" in hub.get("/weather").text
+    page = hub.get("/weather").text
+    assert "Прогноза по часам пока нет" in page
+    assert 'class="page-header"' in page and "<h1>Погода</h1>" in page
 
 
 def test_the_weather_page_for_the_phone_has_no_menu(hub):
@@ -225,4 +230,5 @@ def test_the_weather_page_for_the_phone_has_no_menu(hub):
     page = hub.get("/weather", params={"embed": 1}).text
     assert 'class="sidebar"' not in page and "content embed" in page
     assert '<body class="embed">' in page and "Таблица по часам" not in page
+    assert 'class="page-header"' not in page and "<h1>" not in page
     assert 'class="sidebar"' in hub.get("/weather").text

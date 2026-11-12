@@ -21,6 +21,8 @@ from app.services.people import PeopleService
 from app.services.sitting import SittingService
 from app.services.weather import WeatherService
 
+MAX_LABEL = 40
+
 
 class UnknownDevice(Exception):
     """Устройство не зарегистрировано (например, база хаба создана заново).
@@ -49,6 +51,13 @@ class DeviceService:
         self._medication = MedicationService(clock=clock)
         self._sitting = SittingService(clock=clock)
         self._clock = clock
+
+    def rename(self, device_id: str, label: str) -> bool:
+        """Дать телефону имя в админке (до 40 знаков); пустое имя возвращает имя самого телефона."""
+        label = " ".join(label.split())
+        if len(label) > MAX_LABEL:
+            raise ValueError("label_long")
+        return self._devices.set_label(device_id, label)
 
     def register(self, reg: DeviceRegistration) -> DeviceConfig:
         self._devices.upsert(reg, self._clock())

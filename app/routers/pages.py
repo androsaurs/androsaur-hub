@@ -8,6 +8,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 
 from app.clients.weather import WeatherError
 from app.dependencies import (
+    get_auth_service,
     get_character_service,
     get_device_service,
     get_home_service,
@@ -23,8 +24,9 @@ from app.dependencies import (
     get_weather_service,
 )
 from app.horoscope import SIGNS, HoroscopeError
+from app.services.auth import PAIRING_MINUTES, AuthService, format_code
 from app.services.characters import CharacterError, CharacterService
-from app.services.devices import DeviceService
+from app.services.devices import MAX_LABEL, DeviceService
 from app.services.home import HomeService, HomeSettingError
 from app.services.horoscope import HoroscopeService
 from app.services.integrations import IntegrationError, IntegrationsService
@@ -88,7 +90,6 @@ def index(
     request: Request,
     error: str | None = None,
     settings: SettingsService = Depends(get_settings_service),
-    devices: DeviceService = Depends(get_device_service),
     weather: WeatherService = Depends(get_weather_service),
 ) -> HTMLResponse:
     place, reading = weather.current()
@@ -103,10 +104,82 @@ def index(
             "now_ms": int(time.time() * 1000),
             "settings": settings.list(),
             "revision": settings.revision(),
-            "devices": devices.all(),
             "error": error,
         },
     )
+
+
+def _devices_page(
+    request: Request,
+    settings: SettingsService,
+    devices: DeviceService,
+    auth: AuthService,
+    new_code: str | None = None,
+    error: str | None = None,
+) -> HTMLResponse:
+    response = templates.TemplateResponse(
+        request,
+        "devices.html",
+        {
+            "page": "devices",
+            "error": (
+                f"Имя телефона — не длиннее {MAX_LABEL} знаков." if error == "label_long" else None
+            ),
+            "devices": devices.all(),
+            "paired": auth.paired_devices(),
+            "pairing_left": auth.pairing_codes_left(),
+            "pairing_minutes": PAIRING_MINUTES,
+            "new_code": format_code(new_code) if new_code else None,
+            "hub_url": str(request.base_url).rstrip("/"),
+            "revision": settings.revision(),
+        },
+    )
+    if new_code:
+        response.headers["Cache-Control"] = "no-store"
+    return response
+
+
+@router.get("/devices", response_class=HTMLResponse)
+def devices_page(
+    request: Request,
+    error: str | None = None,
+    settings: SettingsService = Depends(get_settings_service),
+    devices: DeviceService = Depends(get_device_service),
+    auth: AuthService = Depends(get_auth_service),
+) -> HTMLResponse:
+    return _devices_page(request, settings, devices, auth, error=error)
+
+
+@router.post("/devices/pair-code", response_class=HTMLResponse)
+def new_pairing_code(
+    request: Request,
+    settings: SettingsService = Depends(get_settings_service),
+    devices: DeviceService = Depends(get_device_service),
+    auth: AuthService = Depends(get_auth_service),
+) -> HTMLResponse:
+    """Новый одноразовый код привязки телефона: показывается один раз, хаб хранит только хеш."""
+    return _devices_page(request, settings, devices, auth, new_code=auth.new_pairing_code())
+
+
+@router.post("/devices/{device_id}/rename")
+def rename_device(
+    device_id: str,
+    name: str = Form(default="", max_length=200),
+    devices: DeviceService = Depends(get_device_service),
+) -> Response:
+    """Имя телефона в админке («Кухня», «Детская»): чтобы различать одинаковые модели."""
+    try:
+        devices.rename(device_id, name)
+    except ValueError:
+        return RedirectResponse("/devices?error=label_long", status_code=303)
+    return RedirectResponse("/devices", status_code=303)
+
+
+@router.post("/devices/{device_id}/revoke")
+def revoke_device(device_id: str, auth: AuthService = Depends(get_auth_service)) -> Response:
+    """Отключить телефон: его токен перестаёт действовать, вернуть можно новой привязкой."""
+    auth.revoke_device(device_id)
+    return RedirectResponse("/devices", status_code=303)
 
 
 @router.post("/settings/{module}/{key}")

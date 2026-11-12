@@ -1,3 +1,4 @@
+from app.services.auth import AuthService
 from app.services.characters import CharacterService
 from app.services.devices import DeviceService
 from app.services.home import HomeService
@@ -11,6 +12,11 @@ from app.services.sitting import SittingService
 from app.services.things import ThingsService
 from app.services.trace import TraceService
 from app.services.weather import WeatherService
+
+
+def get_auth_service() -> AuthService:
+    """FastAPI-зависимость: вход в админку и токены телефонов."""
+    return AuthService()
 
 
 def get_character_service() -> CharacterService:

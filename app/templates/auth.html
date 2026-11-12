@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ title }} · {{ app_name }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', path='css/style.css') }}">
+</head>
+<body class="auth-page">
+  <main class="auth-box">
+    <h1>{{ app_name }}</h1>
+    <p class="auth-lead">{{ lead }}</p>
+    {% if error %}<p class="auth-error" role="alert">{{ error }}</p>{% endif %}
+    <form method="post" action="{{ action }}" class="auth-form">
+      {% if token %}<input type="hidden" name="token" value="{{ token }}">{% endif %}
+      {% if next_url %}<input type="hidden" name="next" value="{{ next_url }}">{% endif %}
+      <label>Имя пользователя
+        <input type="text" name="username" autocomplete="username" required maxlength="64" value="{{ username or '' }}" autofocus>
+      </label>
+      <label>Пароль
+        <input type="password" name="password" autocomplete="{{ 'new-password' if setup else 'current-password' }}" required{% if setup %} minlength="{{ min_password }}"{% endif %}>
+      </label>
+      {% if setup %}
+      <label>Пароль ещё раз
+        <input type="password" name="password2" autocomplete="new-password" required minlength="{{ min_password }}">
+      </label>
+      <p class="hint">Не короче {{ min_password }} символов. Забытый пароль меняется командой на сервере хаба:
+        <code>python -m app.cli set-password</code>.</p>
+      {% endif %}
+      <button type="submit">{{ button }}</button>
+    </form>
+  </main>
+</body>
+</html>

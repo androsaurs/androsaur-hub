@@ -1,12 +1,9 @@
 {% extends "base.html" %}
+{% from "_ui.html" import page_header %}
 {% block title %}Мой персонаж · {{ app_name }}{% endblock %}
 {% block content %}
 <link rel="stylesheet" href="{{ url_for('static', path='css/characters.css') }}">
-<div class="catalog-intro">
-  <p class="catalog-eyebrow">Маленькие друзья · Androsaur</p>
-  <h1>Кто будет твоим другом?</h1>
-  <p>Познакомься, посмотри, как они оживают, и выбери своего.<br>Он встретит тебя на любом телефоне, который тебя узнает.</p>
-</div>
+{% call page_header("Персонажи") %}Познакомься, посмотри, как они оживают, и выбери своего: он встретит тебя на любом телефоне, который тебя узнает.{% endcall %}
 <form method="get" action="/characters" class="catalog-person">
   <label for="catalog-person">Для кого выбираем?</label>
   <select id="catalog-person" name="person" required>

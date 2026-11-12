@@ -75,25 +75,6 @@
   {% endif %}
 </div>
 
-<h2>Устройства</h2>
-{% if devices %}
-<ul class="devices">
-  {% for d in devices %}
-  <li>
-    <div>
-      <span class="device-name">{{ d.device.name }}</span>
-      <span class="device-meta">{{ d.device.model }}{% if d.device.app_version %} · androsaur {{ d.device.app_version }}{% endif %}</span>
-    </div>
-    <div class="device-state">
-      <span class="dot {{ 'on' if d.online else 'off' }}"></span>
-      {% if d.online %}на связи{% else %}не на связи{% endif %}{% if d.seen_ago_s is not none %}, {{ d.seen_ago_s | ago }}{% endif %}
-      · {% if d.up_to_date %}настройки применены{% else %}ждёт устройство{% endif %}
-    </div>
-  </li>
-  {% endfor %}
-</ul>
-{% else %}
-<p class="empty">Ни один телефон ещё не подключался.</p>
-{% endif %}
+<p class="hint">Телефоны, их привязка и состояние настроек — на странице <a href="/devices">«Устройства»</a>.</p>
 <p class="hint rev">Ревизия настроек {{ revision }}</p>
 {% endblock %}

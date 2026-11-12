@@ -276,3 +276,13 @@ def test_bad_roles_are_refused(client):
         assert error in reply.text, roles
     client.post("/people/roles", data={"person": PAPA["id"], "roles": ""})
     assert phone_sync(client, DEVICE, [PAPA, KATYA])["roles"] == []
+
+
+def test_the_owners_phone_names_show_in_the_list_of_phones_of_a_person(client):
+    join(client, DEVICE, "Redmi 12", [PAPA])
+    join(client, OTHER, "Redmi 12", [PAPA])
+    page = client.get("/people").text
+    assert "телефоны: Redmi 12, Redmi 12" in page
+    client.post(f"/devices/{OTHER}/rename", data={"name": "Кухня"})
+    page = client.get("/people").text
+    assert "телефоны: Redmi 12, Кухня" in page

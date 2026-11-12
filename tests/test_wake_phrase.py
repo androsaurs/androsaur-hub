@@ -18,9 +18,9 @@ def test_phrase_is_normalized_stored_and_sent_as_text_with_acknowledgement(clien
     config = sync(client, applied=before).json()
     assert config["values"] == {"audio": {"phrase": "зюзя"}}
     assert config["rev"] > before
-    assert "ждёт устройство" in client.get("/").text
+    assert "ждёт устройство" in client.get("/devices").text
     sync(client, applied=config["rev"])
-    assert "настройки применены" in client.get("/").text
+    assert "настройки применены" in client.get("/devices").text
     # Re-registering an old phone must not erase the new field or its saved value.
     register(client)
     assert sync(client).json()["values"]["audio"]["phrase"] == "зюзя"
