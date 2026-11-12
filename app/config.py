@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     online_window_s: int = 90
     # Погода: обновлять в фоне (в тестах выключено) и не чаще, чем раз в столько секунд.
     weather_enabled: bool = True
+    stand_poll_enabled: bool = True
     weather_refresh_s: int = 1800
     # Звук голосовых записок (для расшифровки), вне git; и сколько дней хранить записки.
     notes_dir: Path = Path("data/notes")

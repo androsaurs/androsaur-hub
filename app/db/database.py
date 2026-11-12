@@ -63,6 +63,21 @@ CREATE TABLE IF NOT EXISTS devices (
 );
 
 -- Описание настроек присылают сами устройства (схема модуля).
+CREATE TABLE IF NOT EXISTS stands (
+    id TEXT PRIMARY KEY,
+    device TEXT NOT NULL UNIQUE REFERENCES devices(id) ON DELETE CASCADE,
+    ip TEXT NOT NULL,
+    fingerprint TEXT NOT NULL,
+    credential TEXT NOT NULL,
+    last_seen_at REAL,
+    status TEXT,
+    error TEXT,
+    phone_state TEXT,
+    phone_reported_at REAL,
+    phone_seen_at REAL
+);
+
+-- Описание настроек присылают сами устройства (схема модуля).
 CREATE TABLE IF NOT EXISTS setting_fields (
     module        TEXT NOT NULL,
     key           TEXT NOT NULL,
@@ -413,4 +428,12 @@ def init_db() -> None:
         for column, ddl in _DEVICE_COLUMNS.items():
             if have and column not in have:
                 conn.execute(f"ALTER TABLE devices ADD COLUMN {ddl}")
+        stand_columns = {row["name"] for row in conn.execute("PRAGMA table_info(stands)")}
+        for column, kind in (
+            ("phone_state", "TEXT"),
+            ("phone_reported_at", "REAL"),
+            ("phone_seen_at", "REAL"),
+        ):
+            if stand_columns and column not in stand_columns:
+                conn.execute(f"ALTER TABLE stands ADD COLUMN {column} {kind}")
         conn.executescript(_SCHEMA)

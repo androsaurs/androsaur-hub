@@ -5,6 +5,7 @@ from app.config import get_settings
 from app.repositories.devices import DeviceRepository
 from app.repositories.people import PeopleRepository
 from app.repositories.settings import SettingsRepository
+from app.repositories.stands import StandRepository
 from app.schemas import (
     DeviceConfig,
     DeviceRegistration,
@@ -68,6 +69,7 @@ class DeviceService:
         now = self._clock()
         if not self._devices.seen(report.device, report.applied, now):
             raise UnknownDevice(report.device)
+        StandRepository().phone_report(report.device, report.stand_link, now)
         for result in report.done:
             command = self._people.finish(report.device, result, now)
             if command is not None and result.ok and command.kind == "rename_person":

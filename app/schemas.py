@@ -4,6 +4,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field, StrictInt, field_validator, model_validator
 
+from app.stands import PhoneStandReport
+
 FieldType = Literal["int", "string"]
 SettingValue = StrictInt | str
 
@@ -169,6 +171,7 @@ class DeviceSync(BaseModel):
     people: list[PersonReport] | None = Field(default=None, max_length=200)
     face_model: str | None = Field(default=None, max_length=50, alias="faceModel")
     done: list[CommandResult] = Field(default_factory=list, max_length=100)
+    stand_link: PhoneStandReport | None = Field(default=None, alias="standLink")
 
     model_config = {"populate_by_name": True}
 

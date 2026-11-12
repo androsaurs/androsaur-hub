@@ -73,6 +73,7 @@ def _hub(monkeypatch, with_owner: bool) -> Iterator[HubTestClient]:
     dsn = f"file:test_{uuid.uuid4().hex}?mode=memory&cache=shared"
     monkeypatch.setenv("HUB_DATABASE_PATH", dsn)
     monkeypatch.setenv("HUB_WEATHER_ENABLED", "false")  # без фоновых запросов в интернет
+    monkeypatch.setenv("HUB_STAND_POLL_ENABLED", "false")
     get_settings.cache_clear()
     monkeypatch.setattr("app.services.auth._N", 2**10)  # быстрый scrypt только в тестах
 

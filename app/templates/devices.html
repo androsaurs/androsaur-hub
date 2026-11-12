@@ -22,27 +22,95 @@
 {% if devices %}
 <ul class="devices">
   {% for d in devices %}
-  <li>
-    <div>
+  <li class="agent-card">
+    <header class="agent-heading">
       <span class="device-name">{{ d.device.title }}</span>
-      <span class="device-meta">{% if d.device.label %}{{ d.device.name }} · {% endif %}{{ d.device.model }}{% if d.device.app_version %} · androsaur {{ d.device.app_version }}{% endif %}</span>
-      <form method="post" action="/devices/{{ d.device.id }}/rename" class="device-rename">
-        <input type="text" name="name" value="{{ d.device.label }}" maxlength="40" placeholder="Имя: Кухня, Детская…" aria-label="Имя телефона {{ d.device.title }}">
-        <button type="submit" class="secondary">Переименовать</button>
-      </form>
-    </div>
-    <div class="device-state">
+      <span class="device-meta">Домашний ассистент</span>
+    </header>
+    <section class="agent-phone" aria-label="Телефон {{ d.device.title }}">
+      <div class="device-part-heading">
+        <strong>Телефон</strong>
+        {% if d.device.id in paired %}
+        <span class="connection-badge {{ 'online' if d.online else '' }}"><span class="dot {{ 'on' if d.online else 'off' }}" aria-hidden="true"></span>{{ 'На связи с хабом' if d.online else 'Нет связи с хабом' }}</span>
+        {% else %}<span class="connection-badge">Не привязан к хабу</span>{% endif %}
+      </div>
       {% if d.device.id in paired %}
-      <span class="dot {{ 'on' if d.online else 'off' }}"></span>
-      {% if d.online %}на связи{% else %}не на связи{% endif %}{% if d.seen_ago_s is not none %}, {{ d.seen_ago_s | ago }}{% endif %}
-      · {% if d.up_to_date %}настройки применены{% else %}ждёт устройство{% endif %}
-      <form method="post" action="/devices/{{ d.device.id }}/revoke" class="inline-form">
-        <button type="submit" class="link">Отключить</button>
-      </form>
-      {% else %}
-      <span class="dot off"></span> не привязан: нужен код привязки
+      <p class="device-meta">{% if d.seen_ago_s is not none %}Последний обмен: {{ d.seen_ago_s | ago }}. {% endif %}{% if d.up_to_date %}Настройки хаба применены на телефоне.{% else %}Телефон ещё не получил новые настройки хаба.{% endif %}</p>
+      {% else %}<p class="device-meta">Телефон не привязан к хабу. Для подключения выпустите код кнопкой «Добавить телефон».</p>{% endif %}
+      <details class="device-details">
+        <summary>Настройки телефона</summary>
+        <form method="post" action="/devices/{{ d.device.id }}/rename" class="device-rename">
+          <label>Название ассистента<input type="text" name="name" value="{{ d.device.label }}" maxlength="40" placeholder="Кухня, Детская…" aria-label="Имя телефона {{ d.device.title }}"></label>
+          <button type="submit" class="secondary">Сохранить название</button>
+        </form>
+        <dl class="device-facts">
+          {% if d.device.label %}<dt>Имя на телефоне</dt><dd>{{ d.device.name }}</dd>{% endif %}
+          <dt>Модель телефона</dt><dd>{{ d.device.model }}</dd>
+          {% if d.device.app_version %}<dt>Приложение</dt><dd>Androsaur {{ d.device.app_version }}</dd>{% endif %}
+        </dl>
+        {% if d.device.id in paired %}
+        <form method="post" action="/devices/{{ d.device.id }}/revoke" class="device-action">
+          <button type="submit" class="secondary">Отключить телефон от хаба</button>
+          <p class="device-meta">Ассистент продолжит работать автономно.</p>
+        </form>
+        {% endif %}
+      </details>
+    </section>
+    {% set stand = stands.get(d.device.id) %}
+      {% if stand %}
+    <section class="stand-state" aria-label="Подставка ассистента {{ d.device.title }}">
+      <div class="device-part-heading">
+        <strong>Подставка</strong>
+        <span class="connection-badge {{ 'online' if stand.online else '' }}"><span class="dot {{ 'on' if stand.online else 'off' }}" aria-hidden="true"></span>{{ 'На связи с хабом' if stand.online else 'Нет связи с хабом' }}</span>
+      </div>
+      <p class="device-meta">Дополнение к этому телефону. Хаб проверяет связь с подставкой отдельно.</p>
+      <div class="stand-phone-link">
+        <div class="device-part-heading">
+          <strong>Телефон ↔ подставка</strong>
+          <span class="connection-badge {{ 'online' if stand.phone_link == 'online' else 'offline' if stand.phone_link == 'offline' else '' }}">
+            <span class="dot {{ 'on' if stand.phone_link == 'online' else 'off' }}" aria-hidden="true"></span>
+            {% if stand.phone_link == 'online' %}На связи
+            {% elif stand.phone_link == 'offline' %}Нет связи
+            {% elif stand.phone_link == 'checking' %}Проверяется
+            {% elif stand.phone_link == 'unpaired' %}Не привязана к телефону
+            {% elif stand.phone_link == 'stale' %}Данные устарели
+            {% else %}Нет данных{% endif %}
+          </span>
+        </div>
+        <p class="device-meta">{% if stand.phone_reported_ago_s is defined and stand.phone_reported_ago_s is not none %}По данным телефона · обновлено {{ stand.phone_reported_ago_s | ago }}.{% else %}Телефон ещё не сообщил состояние этой связи.{% endif %}</p>
+      </div>
+      {% if stand.status and stand.status.sensors %}
+      <dl class="device-facts">{% for sensor, value in stand.status.sensors.items() %}<dt>{{ sensor }}</dt><dd>{{ value }}{% if not stand.online %} (последнее значение){% endif %}</dd>{% endfor %}</dl>
       {% endif %}
-    </div>
+      <details class="device-details">
+        <summary>Сведения и управление подставкой</summary>
+        <dl class="device-facts">
+          <dt>Адрес в Wi-Fi</dt><dd>{{ stand.ip }}</dd>
+          <dt>ID подставки</dt><dd>{{ stand.id }}</dd>
+          {% if stand.status %}<dt>Прошивка</dt><dd>{{ stand.status.firmware }}{% if not stand.online %} (последние данные){% endif %}</dd>{% endif %}
+        </dl>
+        {% if stand.status and 'policy' in stand.status.capabilities %}
+        <div class="device-action">
+          <p>Режим тишины подставки: <strong>{{ 'включён' if stand.status.quiet else 'выключен' }}</strong>{% if not stand.online %} (последнее состояние){% endif %}</p>
+          <p class="device-meta">В текущей прошивке сохраняется только настройка. Управление динамиком пока недоступно.</p>
+          <form method="post" action="/devices/{{ d.device.id }}/stand/policy">
+            <input type="hidden" name="quiet" value="{{ 'false' if stand.status.quiet else 'true' }}">
+            <button type="submit" class="secondary" {% if not stand.online %}disabled{% endif %}>{{ 'Выключить режим тишины' if stand.status.quiet else 'Включить режим тишины' }}</button>
+          </form>
+        </div>
+        {% endif %}
+        <details class="device-details stand-transfer">
+          <summary>Перенести подставку на другой телефон</summary>
+          <p class="device-meta">На прежнем телефоне нажмите «Отвязать» в приложении Androsaur. На новом — «Добавить подставку» и отсканируйте её QR.</p>
+          <p class="device-meta">Если прежний телефон потерян, трижды выключите и включите питание подставки с паузами 3–5 секунд, затем подтвердите перенос по её QR на новом телефоне.</p>
+          <form method="post" action="/devices/{{ d.device.id }}/stand/forget" class="device-action">
+            <button type="submit" class="secondary">Убрать подставку из этой карточки</button>
+            <p class="device-meta">Используйте после переноса. Это удалит связь в хабе; саму подставку кнопка не отвязывает.</p>
+          </form>
+        </details>
+      </details>
+    </section>
+      {% endif %}
   </li>
   {% endfor %}
 </ul>

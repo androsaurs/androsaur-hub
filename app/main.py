@@ -11,7 +11,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.config import get_settings
 from app.db.database import init_db
-from app.dependencies import get_notes_service, get_weather_service
+from app.dependencies import get_notes_service, get_stand_service, get_weather_service
 from app.repositories.settings import SettingsRepository
 from app.routers import api, auth, pages
 from app.schemas import WAKE_PHRASE_FIELD
@@ -40,6 +40,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         if get_settings().weather_enabled
         else []
     )
+    if get_settings().stand_poll_enabled:
+        tasks.append(asyncio.create_task(_stand_loop(app)))
     yield
     for task in tasks:
         task.cancel()
@@ -54,6 +56,15 @@ async def _notes_loop(app: FastAPI) -> None:
         with contextlib.suppress(Exception):
             await asyncio.to_thread(service.transcribe_pending)
             await asyncio.to_thread(service.cleanup)
+        await asyncio.sleep(15)
+
+
+async def _stand_loop(app: FastAPI) -> None:
+    """Poll stands directly; no phone, weather integration or owner session required."""
+    while True:
+        service = app.dependency_overrides.get(get_stand_service, get_stand_service)()
+        with contextlib.suppress(Exception):
+            await asyncio.to_thread(service.refresh_all)
         await asyncio.sleep(15)
 
 

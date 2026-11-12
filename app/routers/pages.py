@@ -19,6 +19,7 @@ from app.dependencies import (
     get_people_service,
     get_settings_service,
     get_sitting_service,
+    get_stand_service,
     get_things_service,
     get_trace_service,
     get_weather_service,
@@ -35,6 +36,7 @@ from app.services.notes import NotesService
 from app.services.people import ERRORS, PeopleService, PersonError
 from app.services.settings import SettingError, SettingsService
 from app.services.sitting import SittingError, SittingService
+from app.services.stands import StandService
 from app.services.things import ThingsService, ThingsSettingError
 from app.services.trace import TraceService
 from app.services.weather import WeatherService, describe
@@ -127,9 +129,14 @@ def _devices_page(
         {
             "page": "devices",
             "error": (
-                f"Имя телефона — не длиннее {MAX_LABEL} знаков." if error == "label_long" else None
+                f"Имя телефона — не длиннее {MAX_LABEL} знаков."
+                if error == "label_long"
+                else "Подставка недоступна или не подтвердила изменение режима."
+                if error == "stand_unavailable"
+                else None
             ),
             "devices": devices.all(),
+            "stands": StandService().views(),
             "paired": auth.paired_devices(),
             "pairing_left": auth.pairing_codes_left(),
             "pairing_minutes": PAIRING_MINUTES,
@@ -163,6 +170,29 @@ def new_pairing_code(
 ) -> HTMLResponse:
     """Новый одноразовый код привязки телефона: показывается один раз, хаб хранит только хеш."""
     return _devices_page(request, settings, devices, auth, new_code=auth.new_pairing_code())
+
+
+@router.post("/devices/{device_id}/stand/forget")
+def forget_stand_record(
+    device_id: str,
+    service: StandService = Depends(get_stand_service),
+) -> Response:
+    """Remove a stale association after physical ownership reset; no hardware reset is implied."""
+    service.repo.detach(device_id)
+    return RedirectResponse("/devices", status_code=303)
+
+
+@router.post("/devices/{device_id}/stand/policy")
+def stand_policy(
+    device_id: str,
+    quiet: bool = Form(...),
+    service: StandService = Depends(get_stand_service),
+) -> Response:
+    try:
+        service.policy(device_id, quiet)
+    except (LookupError, OSError, ValueError):
+        return RedirectResponse("/devices?error=stand_unavailable", status_code=303)
+    return RedirectResponse("/devices", status_code=303)
 
 
 @router.post("/devices/{device_id}/rename")

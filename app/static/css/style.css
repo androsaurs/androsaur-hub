@@ -131,6 +131,39 @@ h2 { font-size: 1.1rem; margin: var(--space-6) 0 var(--space-3); }
 .people audio { width: 100%; margin-top: var(--space-2); }
 .devices li { display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
 .device-name { font-weight: 600; margin-right: var(--space-2); }
+.devices .agent-card { display: block; padding: 0; overflow: hidden; }
+.agent-heading { padding: var(--space-4) var(--space-5); border-bottom: 1px solid var(--border); }
+.agent-heading .device-name { display: block; font-size: 1.05rem; }
+.agent-phone { padding: var(--space-4) var(--space-5); }
+.device-part-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--space-2); margin-bottom: var(--space-2); }
+.connection-badge { display: inline-flex; align-items: center; gap: 6px; font-size: .8rem; color: var(--muted); border-radius: 999px; padding: 3px 9px; background: var(--bg); white-space: nowrap; }
+.connection-badge.online { color: var(--ok); background: var(--ok-bg); }
+.connection-badge .dot { flex-shrink: 0; margin: 0; }
+.stand-state { margin: 0 var(--space-5) var(--space-5); padding: var(--space-4); background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); overflow-wrap: anywhere; }
+.stand-state .connection-badge { background: var(--card); }
+.stand-state .connection-badge.online { background: var(--ok-bg); }
+.stand-phone-link { margin-top: var(--space-3); padding-top: var(--space-3); border-top: 1px solid var(--border); }
+.stand-phone-link strong { font-size: .85rem; }
+.connection-badge.offline { color: var(--bad); background: var(--bad-bg); }
+.connection-badge.offline .dot { background: var(--bad); }
+.device-details { margin-top: var(--space-3); font-size: .85rem; }
+.device-details > summary { cursor: pointer; color: var(--accent); padding: 6px 0; }
+.device-details > summary:hover { text-decoration: underline; }
+.device-details[open] > summary { margin-bottom: var(--space-2); }
+.device-facts { display: grid; grid-template-columns: minmax(100px, auto) minmax(0, 1fr); gap: var(--space-1) var(--space-3); margin: var(--space-3) 0; font-size: .85rem; }
+.device-facts dt { color: var(--muted); }
+.device-facts dd { overflow-wrap: anywhere; }
+.device-action { display: grid; justify-items: start; gap: var(--space-2); margin-top: var(--space-4); }
+.device-action form { margin: 0; }
+.device-rename label { display: grid; gap: var(--space-1); color: var(--muted); }
+.agent-card .device-rename { align-items: end; }
+.agent-card .device-rename input { max-width: 100%; }
+.stand-transfer { padding-top: var(--space-2); border-top: 1px solid var(--border); }
+@media (max-width: 480px) {
+  .agent-heading, .agent-phone { padding: var(--space-4); }
+  .stand-state { margin: 0 var(--space-4) var(--space-4); }
+  .agent-card .device-rename label, .agent-card .device-rename input { width: 100%; }
+}
 .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: var(--space-1); }
 .dot.on { background: #16a34a; }
 .dot.off { background: #9ca3af; }

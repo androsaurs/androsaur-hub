@@ -13,10 +13,12 @@ from app.dependencies import (
     get_notes_service,
     get_people_service,
     get_sitting_service,
+    get_stand_service,
     get_things_service,
     get_trace_service,
 )
 from app.horoscope import HoroscopeReply, HoroscopeRequest
+from app.repositories.stands import StandConflict
 from app.schemas import (
     AccessorySelection,
     AnnounceReply,
@@ -45,8 +47,10 @@ from app.services.medication import MedicationService
 from app.services.notes import NotesService
 from app.services.people import PeopleService, PersonError
 from app.services.sitting import SittingService
+from app.services.stands import StandService
 from app.services.things import ThingsService
 from app.services.trace import TraceService
+from app.stands import StandEnrollment
 
 # Без токена: проверка, что хаб жив, и обмен одноразового кода на токен телефона.
 public_router = APIRouter(prefix="/api", tags=["api"])
@@ -78,6 +82,37 @@ def pair(
         raise HTTPException(status.HTTP_403_FORBIDDEN, str(e)) from None
     PAIRING_THROTTLE.reset(key)
     return DevicePaired(token=token)
+
+
+@router.post("/device/stand")
+def attach_stand(
+    payload: StandEnrollment,
+    response: Response,
+    device: str = Depends(require_device),
+    service: StandService = Depends(get_stand_service),
+) -> dict[str, bool]:
+    same_device(device, payload.device)
+    response.headers["Cache-Control"] = "no-store"
+    try:
+        service.enroll(payload)
+    except LookupError:
+        raise HTTPException(404, "unknown phone") from None
+    except StandConflict:
+        raise HTTPException(409, "stand binding conflict") from None
+    except (OSError, ValueError):
+        raise HTTPException(502, "stand identity or connection not verified") from None
+    return {"ok": True}
+
+
+@router.post("/device/stand/detach")
+def detach_stand(
+    payload: PeopleRequest,
+    device: str = Depends(require_device),
+    service: StandService = Depends(get_stand_service),
+) -> dict[str, bool]:
+    same_device(device, payload.device)
+    service.repo.detach(device)
+    return {"ok": True}
 
 
 @router.post("/horoscope", response_model=HoroscopeReply)
