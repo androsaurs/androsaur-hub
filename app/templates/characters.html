@@ -5,6 +5,7 @@
 <link rel="stylesheet" href="{{ url_for('static', path='css/characters.css') }}">
 {% call page_header("Персонажи") %}Познакомься, посмотри, как они оживают, и выбери своего: он встретит тебя на любом телефоне, который тебя узнает.{% endcall %}
 <form method="get" action="/characters" class="catalog-person">
+  {% if embed %}<input type="hidden" name="embed" value="1">{% endif %}
   <label for="catalog-person">Для кого выбираем?</label>
   <select id="catalog-person" name="person" required>
     <option value="">Выбери своё имя</option>
@@ -14,7 +15,7 @@
 </form>
 {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
 {% if saved %}<p class="catalog-saved" role="status">Готово, {{ person.name }}! Твой друг встретит тебя, когда телефон тебя узнает. Если ты уже перед камерой, выбор обновится через пару секунд.</p>{% endif %}
-{% if not people %}<p class="empty">Сначала познакомься с камерой телефона — твоё имя появится в разделе <a href="/people">«Люди»</a>.</p>{% endif %}
+{% if not people %}<p class="empty">Сначала познакомься с камерой телефона — твоё имя появится{% if embed %} в списке{% else %} в разделе <a href="/people">«Люди»</a>{% endif %}.</p>{% endif %}
 <div class="character-grid">
   {% for c in catalog %}
   {% set chosen = person and assignments.get(person.id, 'dinosaur') == c.id %}
@@ -28,6 +29,7 @@
       <h2>{{ c.title }}</h2><p>{{ c.description }}</p>
       <form method="post" action="/characters/select">
         <input type="hidden" name="person" value="{{ person.id if person else '' }}">
+        {% if embed %}<input type="hidden" name="embed" value="1">{% endif %}
         <input type="hidden" name="character" value="{{ c.id }}">
         <button type="submit" {% if not person %}disabled{% endif %}>{% if chosen %}Мой персонаж ✓{% else %}Выбрать{% if person %} для {{ person.name }}{% endif %}{% endif %}</button>
       </form>

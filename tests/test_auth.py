@@ -376,3 +376,102 @@ def test_only_the_owner_renames(client: TestClient, anon: TestClient) -> None:
         ).status_code
         == 403
     )
+
+
+# --- каталог персонажей на телефоне (WebView со своим токеном) ---
+
+
+def _kid_phone(anon: TestClient, client: TestClient) -> tuple[TestClient, str]:
+    """Телефон открывает каталог: только заголовок с токеном, как первый запрос WebView."""
+    token = _pair(anon, client)
+    return anon, token
+
+
+def test_phone_opens_the_catalog_with_its_token_and_then_works_by_cookie(
+    client: TestClient, anon: TestClient
+) -> None:
+    anon_phone, token = _kid_phone(anon, client)
+    first = anon_phone.get(
+        "/characters?embed=1", headers={"Authorization": f"Bearer {token}"}, follow_redirects=False
+    )
+    assert first.status_code == 200 and "page-header" in first.text
+    assert 'class="sidebar"' not in first.text
+    cookie = first.headers["set-cookie"].lower()
+    assert "hub_phone=" in cookie and "httponly" in cookie and "samesite=strict" in cookie
+    assert "path=/characters" in cookie
+    # Дальше без заголовка: формы страницы идут с cookie.
+    assert anon_phone.get("/characters?embed=1", follow_redirects=False).status_code == 200
+    person = client.get("/people").text  # владелец; у ребёнка выбор делается по ID человека
+    assert person
+
+
+def test_phone_cookie_chooses_a_character_and_keeps_the_embedded_page(
+    client: TestClient, anon: TestClient
+) -> None:
+    from tests.test_people import PAPA, join
+
+    join(client, PHONE, "Redmi 12", [PAPA])
+    anon_phone, token = _kid_phone(anon, client)
+    anon_phone.get("/characters?embed=1", headers={"Authorization": f"Bearer {token}"})
+    page = anon_phone.get(f"/characters?person={PAPA['id']}&embed=1").text
+    assert 'name="embed" value="1"' in page
+    done = anon_phone.post(
+        "/characters/select",
+        data={"person": PAPA["id"], "character": "cat", "embed": "1"},
+        follow_redirects=False,
+    )
+    assert done.status_code == 303
+    assert done.headers["location"] == f"/characters?person={PAPA['id']}&saved=1&embed=1"
+    assert "Мой персонаж ✓" in anon_phone.get(done.headers["location"]).text
+
+
+def test_phone_session_opens_nothing_else(client: TestClient, anon: TestClient) -> None:
+    anon_phone, token = _kid_phone(anon, client)
+    anon_phone.get("/characters?embed=1", headers={"Authorization": f"Bearer {token}"})
+    for path in ("/", "/people", "/devices", "/notes", "/medication", "/trace"):
+        assert anon_phone.get(path, follow_redirects=False).status_code == 303, path
+    assert anon_phone.post("/devices/pair-code").status_code == 401
+    assert anon_phone.post(f"/devices/{PHONE}/revoke").status_code == 401
+    assert anon_phone.get("/api/characters").status_code == 401
+
+
+def test_the_catalog_needs_a_phone_or_the_owner(anon: TestClient) -> None:
+    assert anon.get("/characters", follow_redirects=False).status_code == 303
+    forged = {"Authorization": "Bearer not-a-token"}
+    assert anon.get("/characters", headers=forged, follow_redirects=False).status_code == 303
+    anon.cookies.set("hub_phone", "made-up", path="/characters")
+    assert anon.get("/characters", follow_redirects=False).status_code == 303
+    assert (
+        anon.post("/characters/select", data={"person": "x", "character": "cat"}).status_code == 401
+    )
+
+
+def test_a_token_alone_cannot_post_a_selection(client: TestClient, anon: TestClient) -> None:
+    anon_phone, token = _kid_phone(anon, client)
+    r = anon_phone.post(
+        "/characters/select",
+        data={"person": "x", "character": "cat"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert r.status_code == 401
+
+
+def test_disconnecting_a_phone_ends_its_catalog_session(
+    client: TestClient, anon: TestClient
+) -> None:
+    anon_phone, token = _kid_phone(anon, client)
+    _register_phone = {"id": PHONE, "name": "x", "model": "x", "appVersion": "1", "settings": []}
+    anon_phone.post(
+        "/api/device/register", json=_register_phone, headers={"Authorization": f"Bearer {token}"}
+    )
+    anon_phone.get("/characters?embed=1", headers={"Authorization": f"Bearer {token}"})
+    assert anon_phone.get("/characters?embed=1", follow_redirects=False).status_code == 200
+    client.post(f"/devices/{PHONE}/revoke")
+    assert anon_phone.get("/characters?embed=1", follow_redirects=False).status_code == 303
+
+
+def test_the_cookie_is_stored_hashed(client: TestClient, anon: TestClient) -> None:
+    anon_phone, token = _kid_phone(anon, client)
+    first = anon_phone.get("/characters", headers={"Authorization": f"Bearer {token}"})
+    cookie = first.cookies.get("hub_phone") or ""
+    assert cookie and cookie not in _db_dump()

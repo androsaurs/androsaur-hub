@@ -154,4 +154,28 @@ class AuthRepository:
     def revoke_device(self, device_id: str) -> bool:
         with get_connection() as conn:
             cursor = conn.execute("DELETE FROM device_tokens WHERE device_id = ?", (device_id,))
+            conn.execute("DELETE FROM phone_sessions WHERE device_id = ?", (device_id,))
         return cursor.rowcount > 0
+
+    # --- сессии страниц телефона ---
+
+    def add_phone_session(
+        self, token_hash: str, device_id: str, now: float, expires_at: float
+    ) -> None:
+        with get_connection() as conn:
+            conn.execute("DELETE FROM phone_sessions WHERE expires_at < ?", (now,))
+            conn.execute(
+                "INSERT INTO phone_sessions (token_hash, device_id, expires_at) VALUES (?, ?, ?)",
+                (token_hash, device_id, expires_at),
+            )
+
+    def phone_session_device(self, token_hash: str, now: float) -> str | None:
+        """ID телефона, если сессия жива и его токен всё ещё действует (отозванный не проходит)."""
+        with get_connection() as conn:
+            row = conn.execute(
+                "SELECT s.device_id FROM phone_sessions s "
+                "JOIN device_tokens t ON t.device_id = s.device_id "
+                "WHERE s.token_hash = ? AND s.expires_at > ?",
+                (token_hash, now),
+            ).fetchone()
+        return str(row["device_id"]) if row else None

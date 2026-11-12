@@ -5,9 +5,14 @@ from urllib.parse import urlsplit
 from fastapi import Depends, HTTPException, Request, Response, status
 
 from app.dependencies import get_auth_service
-from app.services.auth import SESSION_DAYS, AuthService
+from app.services.auth import PHONE_SESSION_HOURS, SESSION_DAYS, AuthService
 
 SESSION_COOKIE = "hub_session"
+PHONE_COOKIE = "hub_phone"
+PHONE_COOKIE_PATH = "/characters"
+PHONE_SESSION_SECONDS = PHONE_SESSION_HOURS * 3600
+# Страницы, которые привязанный телефон открывает у себя: выбор персонажа ребёнком.
+PHONE_PAGE_PATHS = {"/characters", "/characters/select"}
 _SAFE = {"GET", "HEAD", "OPTIONS"}
 # Страницы, которые телефон открывает у себя во встроенном браузере со своим токеном.
 DEVICE_PAGES = {"/weather"}
@@ -51,6 +56,18 @@ def set_session_cookie(request: Request, response: Response, token: str) -> None
     )
 
 
+def set_phone_cookie(request: Request, response: Response, token: str) -> None:
+    response.set_cookie(
+        PHONE_COOKIE,
+        token,
+        max_age=PHONE_SESSION_SECONDS,
+        httponly=True,
+        samesite="strict",
+        secure=is_https(request),
+        path=PHONE_COOKIE_PATH,
+    )
+
+
 def require_owner(request: Request, auth: AuthService = Depends(get_auth_service)) -> str:
     """Доступ к админке: вошедший пользователь (или телефон к своей странице погоды)."""
     if request.method not in _SAFE and not same_origin(request):
@@ -64,6 +81,14 @@ def require_owner(request: Request, auth: AuthService = Depends(get_auth_service
         and auth.device_for_token(bearer(request))
     ):
         return "device"
+    if request.url.path in PHONE_PAGE_PATHS:
+        if auth.phone_session_device(request.cookies.get(PHONE_COOKIE)):
+            return "device"
+        device = auth.device_for_token(bearer(request)) if request.method == "GET" else None
+        if device:
+            # Первое открытие страницы с токеном телефона: дальше формы пойдут с cookie.
+            request.state.new_phone_session = auth.start_phone_session(device)
+            return "device"
     raise LoginRequired()
 
 

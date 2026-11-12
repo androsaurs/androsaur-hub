@@ -15,7 +15,7 @@ from app.dependencies import get_notes_service, get_weather_service
 from app.repositories.settings import SettingsRepository
 from app.routers import api, auth, pages
 from app.schemas import WAKE_PHRASE_FIELD
-from app.security import LoginRequired, require_owner
+from app.security import LoginRequired, require_owner, set_phone_cookie
 from app.services.auth import AuthService
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
@@ -91,6 +91,9 @@ def create_app() -> FastAPI:
     @app.middleware("http")
     async def security_headers(request: Request, call_next):  # type: ignore[no-untyped-def]
         response: Response = await call_next(request)
+        phone_session = getattr(request.state, "new_phone_session", None)
+        if phone_session:
+            set_phone_cookie(request, response, phone_session)
         response.headers.setdefault("X-Content-Type-Options", "nosniff")
         response.headers.setdefault("Referrer-Policy", "same-origin")
         response.headers.setdefault("X-Frame-Options", "DENY")

@@ -9,6 +9,7 @@ from collections.abc import Callable
 from app.repositories.auth import AuthRepository
 
 SESSION_DAYS = 30
+PHONE_SESSION_HOURS = 12
 SETUP_HOURS = 24
 PAIRING_MINUTES = 10
 # Буквы и цифры без похожих (0/O, 1/I/L): код вводят руками на экране телефона.
@@ -207,6 +208,18 @@ class AuthService:
 
     def device_for_token(self, token: str | None) -> str | None:
         return self._repo.device_for_token(_digest(token), self._clock()) if token else None
+
+    def start_phone_session(self, device_id: str) -> str:
+        """Сессия страниц телефона (каталог персонажей в WebView); токен показывается один раз."""
+        token = secrets.token_urlsafe(32)
+        now = self._clock()
+        self._repo.add_phone_session(
+            _digest(token), device_id, now, now + PHONE_SESSION_HOURS * 3600
+        )
+        return token
+
+    def phone_session_device(self, token: str | None) -> str | None:
+        return self._repo.phone_session_device(_digest(token), self._clock()) if token else None
 
     def paired_devices(self) -> dict[str, float]:
         return self._repo.paired_devices()

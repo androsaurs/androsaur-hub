@@ -304,6 +304,16 @@ CREATE TABLE IF NOT EXISTS device_tokens (
     last_used_at REAL
 );
 CREATE INDEX IF NOT EXISTS device_tokens_device ON device_tokens (device_id);
+
+-- Короткая сессия для страниц, которые телефон открывает у себя в WebView (каталог персонажей):
+-- заголовок с токеном есть только у первого запроса, дальше формы идут с этой cookie.
+-- Живёт часы, только для /characters.
+CREATE TABLE IF NOT EXISTS phone_sessions (
+    token_hash TEXT PRIMARY KEY,
+    device_id  TEXT NOT NULL,
+    expires_at REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS phone_sessions_device ON phone_sessions (device_id);
 """
 )
 

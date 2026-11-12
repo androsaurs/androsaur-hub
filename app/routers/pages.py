@@ -50,6 +50,7 @@ def characters_page(
     person: str = "",
     error: str | None = None,
     saved: bool = False,
+    embed: bool = False,
     characters: CharacterService = Depends(get_character_service),
     people: PeopleService = Depends(get_people_service),
 ) -> HTMLResponse:
@@ -60,6 +61,7 @@ def characters_page(
         "characters.html",
         {
             "page": "characters",
+            "embed": embed,
             "catalog": characters.catalog(),
             "people": household,
             "person": selected,
@@ -74,15 +76,17 @@ def characters_page(
 def select_character(
     person: str = Form(...),
     character: str = Form(...),
+    embed: str = Form(default=""),
     characters: CharacterService = Depends(get_character_service),
 ) -> RedirectResponse:
+    tail = "&embed=1" if embed == "1" else ""
     try:
         characters.select(person, character)
     except CharacterError as e:
         return RedirectResponse(
-            f"/characters?person={quote(person)}&error={quote(str(e))}", status_code=303
+            f"/characters?person={quote(person)}&error={quote(str(e))}{tail}", status_code=303
         )
-    return RedirectResponse(f"/characters?person={quote(person)}&saved=1", status_code=303)
+    return RedirectResponse(f"/characters?person={quote(person)}&saved=1{tail}", status_code=303)
 
 
 @router.get("/", response_class=HTMLResponse)
