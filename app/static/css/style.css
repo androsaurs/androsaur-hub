@@ -144,6 +144,21 @@ h2 { font-size: 1.1rem; margin: var(--space-6) 0 var(--space-3); }
 .stand-state .connection-badge.online { background: var(--ok-bg); }
 .stand-phone-link { margin-top: var(--space-3); padding-top: var(--space-3); border-top: 1px solid var(--border); }
 .stand-phone-link strong { font-size: .85rem; }
+.tracking-toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+.tracking-status { color: var(--muted); }
+.tracking-chart { margin: 12px 0; border: 1px solid var(--border); border-radius: 8px; padding: 10px; background: var(--card); }
+.tracking-chart figcaption { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; font-size: .85rem; }
+.tracking-chart output { font-variant-numeric: tabular-nums; margin-left: 4px; }
+.tracking-x { color: var(--accent); }
+.tracking-y { color: #21856c; }
+.tracking-chart svg { display: block; width: 100%; height: auto; touch-action: pan-y; }
+.tracking-chart svg text { font: 13px system-ui, sans-serif; fill: var(--muted); }
+.tracking-grid { stroke: var(--border); fill: none; }
+.tracking-zero { stroke: var(--muted); stroke-dasharray: 5 5; fill: none; }
+.tracking-line { stroke: var(--accent); stroke-width: 2.5; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.tracking-line[data-axis=y] { stroke: #21856c; stroke-dasharray: 6 3; }
+.tracking-cursor { stroke: var(--muted); stroke-width: 1; }
+.tracking-reading { min-height: 2.5em; margin: 0; }
 .connection-badge.offline { color: var(--bad); background: var(--bad-bg); }
 .connection-badge.offline .dot { background: var(--bad); }
 .device-details { margin-top: var(--space-3); font-size: .85rem; }
@@ -261,3 +276,9 @@ button.link.logout { color: var(--sidebar-fg); font-size: .9rem; }
 .device-rename input { width: 260px; }
 pre.command { white-space: pre-wrap; word-break: break-all; font-size: .8rem; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: var(--space-2) var(--space-3); margin-top: var(--space-1); }
 .inline-form { display: inline; margin-left: var(--space-2); }
+
+/* Battery facts sit beside connection facts, without implying that a relay command is a measurement. */
+.device-battery { margin-block: 16px; padding-block: 12px; border-top: 1px solid var(--border); }
+.device-battery .battery-percent { font-size: 1.35rem; font-weight: 650; font-variant-numeric: tabular-nums; }
+.device-battery .battery-reading { margin-block: 6px; overflow-wrap: anywhere; }
+.device-battery .battery-old { font-size: .88em; opacity: .7; }

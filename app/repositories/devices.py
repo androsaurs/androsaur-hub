@@ -1,7 +1,11 @@
+from app.battery import PhoneBatteryReport
 from app.db.database import get_connection
 from app.schemas import Device, DeviceRegistration
 
-_COLUMNS = "id, name, label, model, app_version, last_seen_at, applied_rev"
+_COLUMNS = (
+    "id, name, label, model, app_version, last_seen_at, applied_rev, "
+    "battery_percent, battery_charging, battery_observed_at"
+)
 
 
 class DeviceRepository:
@@ -32,6 +36,17 @@ class DeviceRepository:
                 (now, applied_rev, device_id),
             )
         return cursor.rowcount > 0
+
+    def battery(self, device_id: str, report: PhoneBatteryReport | None, now: float) -> None:
+        if report is None:
+            return  # Preserve the last measurement and its original age, including old clients.
+        observed = now - report.age_ms / 1000
+        with get_connection() as conn:
+            conn.execute(
+                "UPDATE devices SET battery_percent=?, battery_charging=?, battery_observed_at=? "
+                "WHERE id=? AND (battery_observed_at IS NULL OR battery_observed_at<=?)",
+                (report.percent, report.charging, observed, device_id, observed),
+            )
 
     def set_label(self, device_id: str, label: str) -> bool:
         """Имя от владельца; пустое возвращает имя самого телефона. False — телефона нет."""

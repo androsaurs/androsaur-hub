@@ -55,10 +55,10 @@ def test_a_value_set_in_the_hub_reaches_the_device_with_a_new_revision(client):
     config = sync(client, applied=first).json()
     assert config["values"] == {"androsaur": {"dim_after_s": 45}}
     assert config["rev"] > first
-    assert "ждёт устройство" in client.get("/devices").text
+    assert "Телефон ещё не получил новые настройки хаба" in client.get("/devices").text
 
     sync(client, applied=config["rev"])
-    assert "настройки применены" in client.get("/devices").text
+    assert "Настройки хаба применены на телефоне" in client.get("/devices").text
 
 
 def test_reset_brings_the_module_default_back(client):

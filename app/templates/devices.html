@@ -37,6 +37,9 @@
       {% if d.device.id in paired %}
       <p class="device-meta">{% if d.seen_ago_s is not none %}Последний обмен: {{ d.seen_ago_s | ago }}. {% endif %}{% if d.up_to_date %}Настройки хаба применены на телефоне.{% else %}Телефон ещё не получил новые настройки хаба.{% endif %}</p>
       {% else %}<p class="device-meta">Телефон не привязан к хабу. Для подключения выпустите код кнопкой «Добавить телефон».</p>{% endif %}
+      <div class="device-battery" data-phone-battery="{{ d.device.id }}">
+        {% with battery = d.battery %}{% include "_phone_battery.html" %}{% endwith %}
+      </div>
       <details class="device-details">
         <summary>Настройки телефона</summary>
         <form method="post" action="/devices/{{ d.device.id }}/rename" class="device-rename">
@@ -54,6 +57,31 @@
           <p class="device-meta">Ассистент продолжит работать автономно.</p>
         </form>
         {% endif %}
+      </details>
+      <details class="device-details tracking-diagnostics" data-url="/devices/{{ d.device.id }}/tracking.json">
+        <summary>Диагностика слежения · X / Y</summary>
+        <p class="device-meta">Данные камеры телефона. Центр кадра — 0. X: плюс вправо, Y: плюс вверх. Разрыв линии — лица нет или данные не поступают.</p>
+        <div class="tracking-toolbar">
+          <span class="tracking-status" role="status">Откройте график для загрузки наблюдений</span>
+          <button type="button" class="secondary tracking-pause" aria-pressed="false">Пауза графика</button>
+        </div>
+        <figure class="tracking-chart">
+          <figcaption>
+            <span class="tracking-x"><strong>X · вправо</strong> <output data-axis="x">—</output></span>
+            <span class="tracking-y"><strong>Y · вверх</strong> <output data-axis="y">—</output></span>
+          </figcaption>
+          <svg viewBox="0 0 360 180" role="img" tabindex="0" aria-label="Смещения X и Y во времени. Стрелки влево и вправо выбирают наблюдение.">
+            <title>X и Y относительно центра кадра, от −1 до +1</title>
+            <path class="tracking-grid" d="M40 18H344 M40 142H344"/>
+            <path class="tracking-zero" d="M40 80H344"/>
+            <text x="4" y="22">+1</text><text x="12" y="84">0</text><text x="4" y="146">−1</text>
+            <path class="tracking-line" data-axis="x" d=""/>
+            <path class="tracking-line" data-axis="y" d=""/>
+            <line class="tracking-cursor" x1="40" x2="40" y1="18" y2="142" visibility="hidden"/>
+            <text class="tracking-from" x="40" y="172"></text><text class="tracking-to" x="344" y="172" text-anchor="end"></text>
+          </svg>
+          <p class="tracking-reading device-meta">Наведите на график, чтобы увидеть значение</p>
+        </figure>
       </details>
     </section>
     {% set stand = stands.get(d.device.id) %}
@@ -78,6 +106,9 @@
           </span>
         </div>
         <p class="device-meta">{% if stand.phone_reported_ago_s is defined and stand.phone_reported_ago_s is not none %}По данным телефона · обновлено {{ stand.phone_reported_ago_s | ago }}.{% else %}Телефон ещё не сообщил состояние этой связи.{% endif %}</p>
+      </div>
+      <div class="device-battery" data-stand-battery="{{ d.device.id }}">
+        {% include "_stand_battery.html" %}
       </div>
       {% if stand.status and stand.status.sensors %}
       <dl class="device-facts">{% for sensor, value in stand.status.sensors.items() %}<dt>{{ sensor }}</dt><dd>{{ value }}{% if not stand.online %} (последнее значение){% endif %}</dd>{% endfor %}</dl>
@@ -118,4 +149,6 @@
 <p class="empty">Ни один телефон ещё не подключался.</p>
 {% endif %}
 <p class="hint rev">Ревизия настроек {{ revision }}</p>
+<script src="{{ url_for('static', path='js/tracking.js') }}" defer></script>
+<script src="{{ url_for('static', path='js/battery.js') }}" defer></script>
 {% endblock %}

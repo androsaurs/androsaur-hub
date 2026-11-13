@@ -1,6 +1,7 @@
 import time
 from collections.abc import Callable
 
+from app.battery import BatteryView
 from app.config import get_settings
 from app.repositories.devices import DeviceRepository
 from app.repositories.people import PeopleRepository
@@ -69,6 +70,7 @@ class DeviceService:
         now = self._clock()
         if not self._devices.seen(report.device, report.applied, now):
             raise UnknownDevice(report.device)
+        self._devices.battery(report.device, report.battery, now)
         StandRepository().phone_report(report.device, report.stand_link, now)
         for result in report.done:
             command = self._people.finish(report.device, result, now)
@@ -92,6 +94,13 @@ class DeviceService:
                     online=ago is not None and ago <= window,
                     seen_ago_s=ago,
                     up_to_date=device.applied_rev >= rev,
+                    battery=BatteryView(
+                        percent=device.battery_percent,
+                        charging=device.battery_charging,
+                        ago_s=max(0, int(now - device.battery_observed_at)),
+                        fresh=0 <= now - device.battery_observed_at <= 90,
+                    ) if device.battery_percent is not None and device.battery_charging is not None
+                    and device.battery_observed_at is not None else None,
                 )
             )
         return views

@@ -75,6 +75,7 @@ class StandService:
 
     def views(self) -> dict[str, StandView]:
         now = self.clock()
+
         def phone_link(row: dict[str, Any]) -> PhoneStandLinkState:
             if row["phone_state"] is None or row["phone_reported_at"] is None:
                 return "unknown"
@@ -86,8 +87,18 @@ class StandService:
                 return "stale"
             return cast(PhoneStandLinkState, row["phone_state"])
 
-        return {
-            row["device"]: StandView(
+        views = {}
+        for row in self.repo.rows():
+            status = (
+                StandStatus.model_validate(json.loads(row["status"])) if row["status"] else None
+            )
+            battery = status.battery if status else None
+            ago = (
+                now - row["last_seen_at"] + battery.age_ms / 1000
+                if battery and battery.age_ms is not None and row["last_seen_at"] is not None
+                else None
+            )
+            view = StandView(
                 id=row["id"],
                 device=row["device"],
                 ip=row["ip"],
@@ -95,14 +106,14 @@ class StandService:
                 and 0 <= now - row["last_seen_at"] <= 45
                 and not row["error"],
                 last_seen_at=row["last_seen_at"],
-                status=StandStatus.model_validate(json.loads(row["status"]))
-                if row["status"]
-                else None,
+                status=status,
                 error=row["error"],
                 phone_link=phone_link(row),
                 phone_reported_ago_s=max(0, int(now - row["phone_reported_at"]))
                 if row["phone_reported_at"] is not None
                 else None,
+                battery_ago_s=max(0, int(ago)) if ago is not None else None,
             )
-            for row in self.repo.rows()
-        }
+            view.battery_fresh = view.online and ago is not None and 0 <= ago <= 90
+            views[row["device"]] = view
+        return views

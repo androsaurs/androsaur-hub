@@ -12,6 +12,7 @@ from app.services.sitting import SittingService
 from app.services.stands import StandService
 from app.services.things import ThingsService
 from app.services.trace import TraceService
+from app.services.tracking import TrackingService
 from app.services.weather import WeatherService
 
 
@@ -22,6 +23,10 @@ def get_auth_service() -> AuthService:
 
 def get_stand_service() -> StandService:
     return StandService()
+
+
+def get_tracking_service() -> TrackingService:
+    return TrackingService()
 
 
 def get_character_service() -> CharacterService:

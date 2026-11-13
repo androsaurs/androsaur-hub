@@ -59,7 +59,10 @@ CREATE TABLE IF NOT EXISTS devices (
     -- Какую версию людей дома телефон уже загрузил.
     people_rev    INTEGER NOT NULL DEFAULT 0,
     -- Имя от владельца («Кухня»); пусто — имя самого телефона.
-    label         TEXT    NOT NULL DEFAULT ''
+    label         TEXT    NOT NULL DEFAULT '',
+    battery_percent INTEGER,
+    battery_charging INTEGER,
+    battery_observed_at REAL
 );
 
 -- Описание настроек присылают сами устройства (схема модуля).
@@ -76,6 +79,18 @@ CREATE TABLE IF NOT EXISTS stands (
     phone_reported_at REAL,
     phone_seen_at REAL
 );
+
+CREATE TABLE IF NOT EXISTS tracking_observations (
+    device TEXT NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+    session TEXT NOT NULL,
+    seq INTEGER NOT NULL,
+    observed_at REAL NOT NULL,
+    received_at REAL NOT NULL,
+    x REAL,
+    y REAL,
+    UNIQUE(device, session, seq)
+);
+CREATE INDEX IF NOT EXISTS tracking_time ON tracking_observations(device, observed_at);
 
 -- Описание настроек присылают сами устройства (схема модуля).
 CREATE TABLE IF NOT EXISTS setting_fields (
@@ -405,6 +420,14 @@ def init_db() -> None:
         if columns and ("person_id" not in columns or "digest" not in columns):
             conn.execute("DROP TABLE device_people")
         # Колонки, появившиеся позже, добавляются в уже созданную базу.
+        device_columns = {row["name"] for row in conn.execute("PRAGMA table_info(devices)")}
+        for column, kind in (
+            ("battery_percent", "INTEGER"), ("battery_charging", "INTEGER"),
+            ("battery_observed_at", "REAL"),
+        ):
+            if device_columns and column not in device_columns:
+                conn.execute(f"ALTER TABLE devices ADD COLUMN {column} {kind}")
+
         house = {row["name"] for row in conn.execute("PRAGMA table_info(house_people)")}
         if house and "roles" not in house:
             conn.execute("ALTER TABLE house_people ADD COLUMN roles TEXT NOT NULL DEFAULT '[]'")

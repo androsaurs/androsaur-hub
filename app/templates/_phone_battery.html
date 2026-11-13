@@ -1,0 +1,8 @@
+<div class="device-part-heading">
+  <strong>Батарея телефона</strong>
+  {% if battery %}<span class="battery-percent">{{ battery.percent }}%</span>{% endif %}
+</div>
+{% if battery %}
+<p class="battery-reading">{{ 'Идёт зарядка' if battery.charging else 'Не идёт зарядка' }}{% if not battery.fresh %} <span class="battery-old">· последнее состояние</span>{% endif %}</p>
+<p class="device-meta battery-freshness">По данным телефона · обновлено {{ battery.ago_s | ago }}.{% if not battery.fresh %} Данные устарели.{% endif %}</p>
+{% else %}<p class="device-meta battery-freshness">Телефон ещё не передал состояние батареи.</p>{% endif %}

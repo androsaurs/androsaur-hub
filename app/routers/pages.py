@@ -3,8 +3,8 @@ import time
 from collections.abc import Callable
 from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, Form, Request
-from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 
 from app.clients.weather import WeatherError
 from app.dependencies import (
@@ -22,6 +22,7 @@ from app.dependencies import (
     get_stand_service,
     get_things_service,
     get_trace_service,
+    get_tracking_service,
     get_weather_service,
 )
 from app.horoscope import SIGNS, HoroscopeError
@@ -39,11 +40,46 @@ from app.services.sitting import SittingError, SittingService
 from app.services.stands import StandService
 from app.services.things import ThingsService, ThingsSettingError
 from app.services.trace import TraceService
+from app.services.tracking import TrackingService
 from app.services.weather import WeatherService, describe
 from app.templating import templates
 from app.trace import STAGES
 
 router = APIRouter(tags=["pages"])
+
+
+@router.get("/devices/battery.json")
+def device_batteries(
+    devices: DeviceService = Depends(get_device_service),
+    stands: StandService = Depends(get_stand_service),
+) -> JSONResponse:
+    phone_template = templates.env.get_template("_phone_battery.html")
+    stand_template = templates.env.get_template("_stand_battery.html")
+    return JSONResponse(
+        {
+            "phones": {
+                d.device.id: phone_template.render(battery=d.battery) for d in devices.all()
+            },
+            "stands": {
+                key: stand_template.render(stand=view) for key, view in stands.views().items()
+            },
+        },
+        headers={"Cache-Control": "no-store"},
+    )
+
+
+@router.get("/devices/{device_id}/tracking.json")
+def tracking_history(
+    device_id: str,
+    seconds: int = Query(default=60, ge=10, le=300),
+    service: TrackingService = Depends(get_tracking_service),
+) -> JSONResponse:
+    try:
+        return JSONResponse(
+            service.history(device_id, seconds), headers={"Cache-Control": "no-store"}
+        )
+    except LookupError:
+        raise HTTPException(404, "unknown phone") from None
 
 
 @router.get("/characters", response_class=HTMLResponse)

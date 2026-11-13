@@ -16,6 +16,7 @@ from app.dependencies import (
     get_stand_service,
     get_things_service,
     get_trace_service,
+    get_tracking_service,
 )
 from app.horoscope import HoroscopeReply, HoroscopeRequest
 from app.repositories.stands import StandConflict
@@ -50,7 +51,9 @@ from app.services.sitting import SittingService
 from app.services.stands import StandService
 from app.services.things import ThingsService
 from app.services.trace import TraceService
+from app.services.tracking import TrackingService
 from app.stands import StandEnrollment
+from app.tracking import TrackingBatch
 
 # Без токена: проверка, что хаб жив, и обмен одноразового кода на токен телефона.
 public_router = APIRouter(prefix="/api", tags=["api"])
@@ -101,6 +104,20 @@ def attach_stand(
         raise HTTPException(409, "stand binding conflict") from None
     except (OSError, ValueError):
         raise HTTPException(502, "stand identity or connection not verified") from None
+    return {"ok": True}
+
+
+@router.post("/device/tracking")
+def tracking_observations(
+    payload: TrackingBatch,
+    response: Response,
+    device: str = Depends(require_device),
+    service: TrackingService = Depends(get_tracking_service),
+) -> dict[str, bool]:
+    same_device(device, payload.device)
+    response.headers["Cache-Control"] = "no-store"
+    if not service.record(payload):
+        raise HTTPException(404, "unknown phone")
     return {"ok": True}
 
 

@@ -1,0 +1,8 @@
+<div class="device-part-heading"><strong>Управление зарядкой</strong></div>
+{% if stand.status and stand.status.battery %}
+{% set power = stand.status.battery %}
+<p class="battery-reading">{% if not stand.online %}Нет свежих данных подставки{% elif not power.output_enabled %}Аппаратное управление не включено{% elif power.charge_allowed %}Подставка разрешает зарядку{% else %}Подставка приостановила зарядку{% endif %}</p>
+{% if stand.online %}<p class="device-meta">{% if not power.output_enabled %}Ключ питания не настроен. {% endif %}Решение подставки: {{ 'разрешить зарядку' if power.charge_allowed else 'приостановить зарядку' }}. Диапазон {{ power.start_percent }}–{{ power.stop_percent }}%.</p>{% endif %}
+{% if power.percent is not none %}<p class="device-meta battery-freshness">Последние данные телефона у подставки: {{ power.percent }}% · {{ 'идёт зарядка' if power.charging else 'не идёт зарядка' }} · {{ stand.battery_ago_s | ago }}.{% if not stand.battery_fresh %} Данные батареи устарели.{% endif %}</p>
+{% else %}<p class="device-meta battery-freshness">Подставка ещё не получила данные батареи.</p>{% endif %}
+{% else %}<p class="device-meta battery-freshness">Подставка ещё не передала состояние управления зарядкой.</p>{% endif %}

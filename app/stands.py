@@ -51,6 +51,28 @@ class StandEnrollment(BaseModel):
         return str(address)
 
 
+class StandBatteryStatus(BaseModel):
+    output_enabled: bool = Field(alias="outputEnabled", strict=True)
+    charge_allowed: bool = Field(alias="chargeAllowed", strict=True)
+    start_percent: int = Field(alias="startPercent", ge=0, le=99, strict=True)
+    stop_percent: int = Field(alias="stopPercent", ge=1, le=100, strict=True)
+    state: Literal["waiting", "stale", "allowed", "paused"]
+    percent: int | None = Field(default=None, ge=0, le=100, strict=True)
+    charging: bool | None = Field(default=None, strict=True)
+    age_ms: int | None = Field(default=None, alias="ageMs", ge=0, strict=True)
+    model_config = {"populate_by_name": True}
+
+    @model_validator(mode="after")
+    def consistent(self) -> "StandBatteryStatus":
+        if self.start_percent >= self.stop_percent:
+            raise ValueError("invalid charge thresholds")
+        if any(v is not None for v in (self.percent, self.charging, self.age_ms)) and any(
+            v is None for v in (self.percent, self.charging, self.age_ms)
+        ):
+            raise ValueError("incomplete battery observation")
+        return self
+
+
 class StandStatus(BaseModel):
     id: str = Field(pattern=r"^stand-[0-9a-f]{12}$")
     phone_id: str = Field(alias="phoneId", pattern=r"^[A-Za-z0-9-]{8,64}$")
@@ -59,6 +81,7 @@ class StandStatus(BaseModel):
     protocol: int = Field(ge=1, le=1)
     capabilities: list[str] = Field(max_length=32)
     quiet: bool
+    battery: StandBatteryStatus | None = None
     sensors: dict[str, float] = Field(default_factory=dict, max_length=32)
 
     @field_validator("capabilities")
@@ -86,3 +109,5 @@ class StandView(BaseModel):
     error: str | None
     phone_link: PhoneStandLinkState = "unknown"
     phone_reported_ago_s: int | None = None
+    battery_ago_s: int | None = None
+    battery_fresh: bool = False

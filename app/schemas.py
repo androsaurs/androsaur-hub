@@ -4,6 +4,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field, StrictInt, field_validator, model_validator
 
+from app.battery import BatteryView, PhoneBatteryReport
 from app.stands import PhoneStandReport
 
 FieldType = Literal["int", "string"]
@@ -172,6 +173,7 @@ class DeviceSync(BaseModel):
     face_model: str | None = Field(default=None, max_length=50, alias="faceModel")
     done: list[CommandResult] = Field(default_factory=list, max_length=100)
     stand_link: PhoneStandReport | None = Field(default=None, alias="standLink")
+    battery: PhoneBatteryReport | None = None
 
     model_config = {"populate_by_name": True}
 
@@ -393,6 +395,9 @@ class Device(BaseModel):
     app_version: str
     last_seen_at: float | None
     applied_rev: int
+    battery_percent: int | None = None
+    battery_charging: bool | None = None
+    battery_observed_at: float | None = None
 
     @property
     def title(self) -> str:
@@ -407,6 +412,7 @@ class DeviceView(BaseModel):
     online: bool
     seen_ago_s: int | None
     up_to_date: bool
+    battery: BatteryView | None = None
 
 
 class SettingView(BaseModel):
