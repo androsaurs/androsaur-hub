@@ -92,6 +92,7 @@
         <span class="connection-badge {{ 'online' if stand.online else '' }}"><span class="dot {{ 'on' if stand.online else 'off' }}" aria-hidden="true"></span>{{ 'На связи с хабом' if stand.online else 'Нет связи с хабом' }}</span>
       </div>
       <p class="device-meta">Дополнение к этому телефону. Хаб проверяет связь с подставкой отдельно.</p>
+      {% include "_stand_tracking.html" %}
       <div class="stand-phone-link">
         <div class="device-part-heading">
           <strong>Телефон ↔ подставка</strong>
@@ -151,4 +152,5 @@
 <p class="hint rev">Ревизия настроек {{ revision }}</p>
 <script src="{{ url_for('static', path='js/tracking.js') }}" defer></script>
 <script src="{{ url_for('static', path='js/battery.js') }}" defer></script>
+<script src="{{ url_for('static', path='js/stand-tracking.js') }}" defer></script>
 {% endblock %}

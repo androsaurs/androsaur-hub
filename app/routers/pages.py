@@ -42,10 +42,54 @@ from app.services.things import ThingsService, ThingsSettingError
 from app.services.trace import TraceService
 from app.services.tracking import TrackingService
 from app.services.weather import WeatherService, describe
+from app.stands import TrackingControl, TrackingSettings
 from app.templating import templates
 from app.trace import STAGES
 
 router = APIRouter(tags=["pages"])
+
+
+def _stand_tracking_response(
+    service: StandService, device: str, change: TrackingSettings | bool | None = None
+) -> JSONResponse:
+    try:
+        result = service.tracking(device, change)
+    except LookupError:
+        raise HTTPException(404, "Подставка не привязана к этому телефону.") from None
+    except NotImplementedError:
+        raise HTTPException(
+            409, "Обновите прошивку подставки: настройки слежения недоступны."
+        ) from None
+    except (OSError, ValueError):
+        raise HTTPException(
+            503, "Не удалось подтвердить настройки. Проверьте связь и обновите состояние."
+        ) from None
+    return JSONResponse(result.model_dump(by_alias=True), headers={"Cache-Control": "no-store"})
+
+
+@router.get("/devices/{device_id}/stand/tracking.json")
+def stand_tracking_status(
+    device_id: str, service: StandService = Depends(get_stand_service)
+) -> JSONResponse:
+    return _stand_tracking_response(service, device_id)
+
+
+@router.post("/devices/{device_id}/stand/tracking/settings")
+def stand_tracking_settings(
+    device_id: str,
+    settings: TrackingSettings,
+    service: StandService = Depends(get_stand_service),
+) -> JSONResponse:
+    return _stand_tracking_response(service, device_id, settings)
+
+
+@router.post("/devices/{device_id}/stand/tracking/control")
+def stand_tracking_control(
+    device_id: str,
+    control: TrackingControl,
+    service: StandService = Depends(get_stand_service),
+) -> JSONResponse:
+    return _stand_tracking_response(service, device_id, control.enabled)
 
 
 @router.get("/devices/battery.json")

@@ -287,7 +287,8 @@ def test_hub_policy_is_owner_only_and_does_not_need_phone(client, anon, setup):
     assert service.views()[PHONE].status.quiet
 
 
-def test_certificate_checked_before_credential_sent(monkeypatch):
+@pytest.mark.parametrize("servo", [False, True])
+def test_certificate_checked_before_credential_sent(monkeypatch, servo):
     sent = []
 
     class Socket:
@@ -311,7 +312,10 @@ def test_certificate_checked_before_credential_sent(monkeypatch):
 
     monkeypatch.setattr("app.clients.stand.http.client.HTTPSConnection", Connection)
     with pytest.raises(ConnectionError):
-        StandTransport().request(enrollment())
+        if servo:
+            StandTransport().servos(enrollment(), "center")
+        else:
+            StandTransport().request(enrollment())
     assert not sent
 
 

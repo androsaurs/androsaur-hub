@@ -1,4 +1,5 @@
 import json
+import math
 import time
 from collections.abc import Callable
 from typing import Any, cast
@@ -6,7 +7,13 @@ from typing import Any, cast
 from app.clients.stand import StandTransport
 from app.repositories.devices import DeviceRepository
 from app.repositories.stands import StandRepository
-from app.stands import PhoneStandLinkState, StandEnrollment, StandStatus, StandView
+from app.stands import (
+    PhoneStandLinkState,
+    StandEnrollment,
+    StandStatus,
+    StandView,
+    TrackingSettings,
+)
 
 
 class StandService:
@@ -69,6 +76,43 @@ class StandService:
             if status.quiet != quiet:
                 raise ValueError("policy was not applied")
             self.repo.status(stand, status.model_dump(), self.clock())
+        except (OSError, ValueError):
+            self.repo.failed(stand)
+            raise
+
+    def tracking(self, device: str, change: TrackingSettings | bool | None = None) -> StandStatus:
+        row = self.repo.get(device)
+        if row is None:
+            raise LookupError("stand not attached")
+        stand = self.enrollment(row)
+        try:
+            if change is None:
+                status = self.read(stand)
+            else:
+                status = StandStatus.model_validate(self.transport.tracking(stand, change))
+                if status.id != stand.id or status.phone_id != stand.device:
+                    raise ValueError("stand identity mismatch")
+            if (
+                "trackingSettings" not in status.capabilities
+                or not status.tracking
+                or not status.tracking.settings
+            ):
+                raise NotImplementedError("stand firmware update required")
+            actual = status.tracking.settings
+            if isinstance(change, bool):
+                if actual.enabled != change or status.tracking.output_enabled != change:
+                    raise ValueError("tracking control was not applied")
+            elif change is not None:
+                for key, value in change.model_dump().items():
+                    reported = actual.model_dump()[key]
+                    if isinstance(value, bool):
+                        matches = value == reported
+                    else:
+                        matches = math.isclose(value, reported, rel_tol=1e-5, abs_tol=1e-4)
+                    if not matches:
+                        raise ValueError("tracking settings were not applied")
+            self.repo.status(stand, status.model_dump(), self.clock())
+            return status
         except (OSError, ValueError):
             self.repo.failed(stand)
             raise

@@ -282,3 +282,23 @@ pre.command { white-space: pre-wrap; word-break: break-all; font-size: .8rem; ba
 .device-battery .battery-percent { font-size: 1.35rem; font-weight: 650; font-variant-numeric: tabular-nums; }
 .device-battery .battery-reading { margin-block: 6px; overflow-wrap: anywhere; }
 .device-battery .battery-old { font-size: .88em; opacity: .7; }
+
+/* Servo tuning stays in the assistant card; inputs use human units. */
+.servo-panel { margin-block: 16px; }
+.servo-live { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; padding: 12px; margin-block: 12px; background: var(--bg); border-radius: var(--radius-sm); }
+.servo-position { font-variant-numeric: tabular-nums; color: var(--muted); }
+.servo-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-block: 12px; }
+.servo-settings fieldset { min-width: 0; border: 0; padding: 0; margin-top: 20px; }
+.servo-settings legend { font-weight: 650; margin-bottom: 12px; }
+.servo-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 28px; }
+.servo-field > label { display: block; font-weight: 600; margin-bottom: 8px; }
+.servo-number { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.servo-number input { width: 90px; }
+.servo-number span { color: var(--muted); font-size: .85rem; }
+.servo-field input[type="range"] { width: 100%; min-height: 36px; accent-color: var(--accent); cursor: pointer; }
+.servo-extra { border-top: 1px solid var(--border); padding-top: 14px; margin-block: 16px; }
+.servo-extra .servo-grid { margin-block: 14px; }
+.servo-extra .profile-checkbox { margin-block: 10px; }
+.servo-feedback { min-height: 1.5em; font-size: .9rem; }
+.servo-stop { border-color: var(--bad) !important; color: var(--bad) !important; }
+@media (max-width: 600px) { .servo-grid { grid-template-columns: 1fr; } }

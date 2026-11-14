@@ -73,6 +73,38 @@ class StandBatteryStatus(BaseModel):
         return self
 
 
+class TrackingSettings(BaseModel):
+    """Human units at the API boundary; angles use the stand's nominal servo mapping."""
+
+    model_config = {"populate_by_name": True, "extra": "forbid", "allow_inf_nan": False}
+    enabled: bool = Field(strict=True)
+    pan_range_deg: float = Field(alias="panRangeDeg", ge=0.5, le=90)
+    tilt_range_deg: float = Field(alias="tiltRangeDeg", ge=0.5, le=45)
+    speed_deg_s: float = Field(alias="speedDegS", ge=1, le=90)
+    step_deg: float = Field(alias="stepDeg", ge=0.1, le=10)
+    smoothing_ms: float = Field(alias="smoothingMs", ge=0, le=1000)
+    dead_zone_percent: float = Field(alias="deadZonePercent", ge=1, le=20)
+    pan_reverse: bool = Field(alias="panReverse", strict=True)
+    tilt_reverse: bool = Field(alias="tiltReverse", strict=True)
+
+
+class TrackingControl(BaseModel):
+    enabled: bool = Field(strict=True)
+    model_config = {"extra": "forbid"}
+
+
+class StandTrackingStatus(BaseModel):
+    model_config = {"populate_by_name": True, "allow_inf_nan": False}
+    output_enabled: bool = Field(alias="outputEnabled", strict=True)
+    state: str
+    settings: TrackingSettings | None = None
+    pan_deg: float | None = Field(default=None, alias="panDeg")
+    tilt_deg: float | None = Field(default=None, alias="tiltDeg")
+    age_ms: int | None = Field(default=None, alias="ageMs", ge=0)
+    x: float | None = None
+    y: float | None = None
+
+
 class StandStatus(BaseModel):
     id: str = Field(pattern=r"^stand-[0-9a-f]{12}$")
     phone_id: str = Field(alias="phoneId", pattern=r"^[A-Za-z0-9-]{8,64}$")
@@ -82,6 +114,7 @@ class StandStatus(BaseModel):
     capabilities: list[str] = Field(max_length=32)
     quiet: bool
     battery: StandBatteryStatus | None = None
+    tracking: StandTrackingStatus | None = None
     sensors: dict[str, float] = Field(default_factory=dict, max_length=32)
 
     @field_validator("capabilities")
